@@ -88,6 +88,7 @@ export interface UniversityUpdate {
 export enum View {
   DASHBOARD = 'DASHBOARD',
   EDITOR = 'EDITOR',
+  DOCUMENTS = 'DOCUMENTS',
   TEMPLATES = 'TEMPLATES',
   MARKETPLACE = 'MARKETPLACE',
   SETTINGS = 'SETTINGS',

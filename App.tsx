@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
+import { DocumentsList } from './components/DocumentsList';
 import { Editor } from './components/Editor';
 import { Templates } from './components/Templates';
 import { Marketplace } from './components/Marketplace';
@@ -12,6 +13,7 @@ import { Construction, Menu, GraduationCap } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
+  const [previousView, setPreviousView] = useState<View>(View.DASHBOARD);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
   const [activeUniversity, setActiveUniversity] = useState<University | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -39,6 +41,7 @@ const App: React.FC = () => {
   ]);
 
   const handleOpenDocument = (doc: Document) => {
+    setPreviousView(currentView === View.DOCUMENTS ? View.DOCUMENTS : View.DASHBOARD);
     setCurrentDoc(doc);
     // Find associated university mock (simplified logic)
     const uniName = doc.universityId === 'uon' ? 'University of Nairobi' : 'Kenyatta University'; 
@@ -60,6 +63,7 @@ const App: React.FC = () => {
     setDocuments([newDoc, ...documents]);
     setCurrentDoc(newDoc);
     setActiveUniversity(uni);
+    setPreviousView(View.DOCUMENTS); // When creating new, going back should generally go to list
     setCurrentView(View.EDITOR);
     setIsSidebarOpen(false);
   };
@@ -119,6 +123,14 @@ const App: React.FC = () => {
             <Dashboard documents={documents} onOpenDocument={handleOpenDocument} />
           )}
 
+          {currentView === View.DOCUMENTS && (
+            <DocumentsList 
+               documents={documents} 
+               onOpenDocument={handleOpenDocument}
+               onCreateNew={() => setCurrentView(View.TEMPLATES)}
+            />
+          )}
+
           {currentView === View.TEMPLATES && (
             <Templates onSelect={handleCreateDocument} />
           )}
@@ -128,7 +140,7 @@ const App: React.FC = () => {
               document={currentDoc} 
               university={activeUniversity} 
               onSave={handleSaveDocument}
-              onBack={() => setCurrentView(View.DASHBOARD)}
+              onBack={() => setCurrentView(previousView)}
             />
           )}
 

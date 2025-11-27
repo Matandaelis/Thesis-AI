@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
       title: 'Main',
       items: [
         { id: View.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-        { id: View.EDITOR, label: 'My Documents', icon: FileText },
+        { id: View.DOCUMENTS, label: 'My Documents', icon: FileText },
         { id: View.CALENDAR, label: 'Deadlines', icon: Calendar },
       ]
     },
