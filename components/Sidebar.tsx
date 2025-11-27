@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, ShoppingBag, Settings, BookOpen, 
   Library, Calendar, BarChart2, Users, GraduationCap, ChevronRight,
-  Layers, PenTool, Database, Briefcase, X
+  Layers, PenTool, Database, Briefcase, X, CreditCard, Sparkles
 } from 'lucide-react';
 import { View } from '../types';
 
@@ -22,7 +22,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isOpen, onClose }) => {
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Research Suite', 'Scholar Tools']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['AI Tools']);
 
   const toggleGroup = (label: string) => {
     setExpandedGroups(prev => 
@@ -34,39 +34,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
 
   const navSections: { title: string, items: NavItem[] }[] = [
     {
-      title: 'Main',
+      title: 'Workspace',
       items: [
         { id: View.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-        { id: View.DOCUMENTS, label: 'My Documents', icon: FileText },
-        { id: View.CALENDAR, label: 'Deadlines', icon: Calendar },
+        { id: View.DOCUMENTS, label: 'My Thesis', icon: FileText },
+        { id: View.CALENDAR, label: 'Thesis Calendar', icon: Calendar },
       ]
     },
     {
-      title: 'Scholar Tools',
+      title: 'Research Engine',
       items: [
-         { id: View.TOOLKIT, label: 'Toolkit (New)', icon: PenTool },
-         { 
-          label: 'Research Suite', 
-          icon: Library,
+        { 
+          label: 'AI Tools', 
+          icon: Sparkles,
           subItems: [
-             { id: View.RESEARCH, label: 'Library', icon: BookOpen },
-             { id: View.ANALYTICS, label: 'Analytics', icon: BarChart2 },
-             { id: View.TEMPLATES, label: 'Templates', icon: Layers },
+             { id: View.TOOLKIT, label: 'Scholar Toolkit', icon: PenTool },
+             { id: View.RESEARCH, label: 'Research Library', icon: BookOpen },
+             { id: View.ANALYTICS, label: 'Performance Stats', icon: BarChart2 },
           ]
         },
         { 
-          label: 'Community & Help', 
-          icon: Users,
+          label: 'Resources', 
+          icon: Library,
           subItems: [
-             { id: View.MARKETPLACE, label: 'Expert Help', icon: ShoppingBag },
-             { id: View.COMMUNITY, label: 'Student Hub', icon: Users },
+             { id: View.TEMPLATES, label: 'Uni Templates', icon: Layers },
+             { id: View.MARKETPLACE, label: 'Hire Experts', icon: ShoppingBag },
+             { id: View.COMMUNITY, label: 'Community Hub', icon: Users },
           ]
-        },
+        }
       ]
     },
     {
-      title: 'System',
+      title: 'Account',
       items: [
+        { id: View.PRICING, label: 'Subscription', icon: CreditCard },
         { id: View.SETTINGS, label: 'Settings', icon: Settings },
       ]
     }
@@ -212,7 +213,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
             <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
               <div className="bg-gradient-to-r from-teal-500 to-emerald-400 h-1.5 rounded-full" style={{ width: '22%' }}></div>
             </div>
-            <button className="w-full mt-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white border border-slate-600 hover:border-slate-500 rounded transition-colors">
+            <button 
+              onClick={() => {
+                onChangeView(View.PRICING);
+                if (window.innerWidth < 768) onClose();
+              }}
+              className="w-full mt-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white border border-slate-600 hover:border-slate-500 rounded transition-colors"
+            >
               Upgrade Plan
             </button>
           </div>

@@ -8,15 +8,97 @@ import { Templates } from './components/Templates';
 import { Marketplace } from './components/Marketplace';
 import { Settings } from './components/Settings';
 import { Toolkit } from './components/Toolkit';
-import { Document, University, View } from './types';
+import { Analytics } from './components/Analytics';
+import { Pricing } from './components/Pricing';
+import { ResearchLibrary } from './components/ResearchLibrary';
+import { Calendar } from './components/Calendar';
+import { Document, University, View, LibraryItem } from './types';
 import { Construction, Menu, GraduationCap } from 'lucide-react';
 
-const App: React.FC = () => {
+// Shared mock data for universities to ensure standards are available
+const MOCK_UNIVERSITIES: University[] = [
+  {
+    id: 'uon',
+    name: 'University of Nairobi',
+    logo: 'https://picsum.photos/100/100?random=1',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'ku',
+    name: 'Kenyatta University',
+    logo: 'https://picsum.photos/100/100?random=2',
+    standards: { font: 'Arial', size: '11', spacing: '1.5', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'strath',
+    name: 'Strathmore University',
+    logo: 'https://picsum.photos/100/100?random=3',
+    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'Harvard' }
+  },
+  {
+    id: 'jkuat',
+    name: 'JKUAT',
+    logo: 'https://picsum.photos/100/100?random=4',
+    standards: { font: 'Calibri', size: '11', spacing: 'Double', citationStyle: 'IEEE' }
+  }
+];
+
+export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   const [previousView, setPreviousView] = useState<View>(View.DASHBOARD);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
   const [activeUniversity, setActiveUniversity] = useState<University | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Shared Library Items State
+  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([
+    {
+      id: '1',
+      type: 'journal',
+      author: 'Njogi, A. & Kamau, P.',
+      year: '2023',
+      title: 'Adoption of AI in East African Healthcare Systems',
+      source: 'Journal of African Health Sciences',
+      formatted: 'Njogi, A. & Kamau, P. (2023). Adoption of AI in East African Healthcare Systems. Journal of African Health Sciences.',
+      raw: '',
+      tags: ['AI', 'Healthcare', 'Kenya'],
+      readStatus: 'reading',
+      isFavorite: true,
+      addedDate: new Date('2023-09-10'),
+      folderId: 'f1',
+      pdfUrl: '#'
+    },
+    {
+      id: '2',
+      type: 'report',
+      author: 'World Bank Group',
+      year: '2022',
+      title: 'Digital Economy Blueprint for Africa',
+      source: 'World Bank Publications',
+      formatted: 'World Bank Group. (2022). Digital Economy Blueprint for Africa. World Bank Publications.',
+      raw: '',
+      tags: ['Economics', 'Policy'],
+      readStatus: 'unread',
+      isFavorite: false,
+      addedDate: new Date('2023-10-05'),
+      folderId: 'f1'
+    },
+    {
+      id: '3',
+      type: 'book',
+      author: 'Smith, J.',
+      year: '2021',
+      title: 'Research Methods for Social Sciences',
+      source: 'Oxford University Press',
+      formatted: 'Smith, J. (2021). Research Methods for Social Sciences. Oxford University Press.',
+      raw: '',
+      tags: ['Methodology', 'Qualitative'],
+      readStatus: 'read',
+      isFavorite: true,
+      addedDate: new Date('2023-08-15'),
+      folderId: 'f2'
+    }
+  ]);
 
   // Mock Data
   const [documents, setDocuments] = useState<Document[]>([
@@ -43,9 +125,11 @@ const App: React.FC = () => {
   const handleOpenDocument = (doc: Document) => {
     setPreviousView(currentView === View.DOCUMENTS ? View.DOCUMENTS : View.DASHBOARD);
     setCurrentDoc(doc);
-    // Find associated university mock (simplified logic)
-    const uniName = doc.universityId === 'uon' ? 'University of Nairobi' : 'Kenyatta University'; 
-    setActiveUniversity({ id: doc.universityId, name: uniName } as University);
+    
+    // Find associated university from mock data to ensure standards exist
+    const uni = MOCK_UNIVERSITIES.find(u => u.id === doc.universityId) || MOCK_UNIVERSITIES[0];
+    
+    setActiveUniversity(uni);
     setCurrentView(View.EDITOR);
     setIsSidebarOpen(false);
   };
@@ -141,6 +225,7 @@ const App: React.FC = () => {
               university={activeUniversity} 
               onSave={handleSaveDocument}
               onBack={() => setCurrentView(previousView)}
+              libraryItems={libraryItems}
             />
           )}
 
@@ -156,25 +241,26 @@ const App: React.FC = () => {
              <Toolkit />
           )}
 
-          {/* New Views Placeholders */}
-          {currentView === View.RESEARCH && (
-             <PlaceholderView 
-               title="Research Library" 
-               desc="A centralized hub to manage your references, PDFs, and citations across all your thesis projects. Coming soon!" 
-             />
-          )}
-          {currentView === View.CALENDAR && (
-             <PlaceholderView 
-               title="Thesis Calendar" 
-               desc="Track your submission deadlines, supervisor meetings, and writing milestones in one place." 
-             />
-          )}
           {currentView === View.ANALYTICS && (
-             <PlaceholderView 
-               title="Writing Analytics" 
-               desc="Deep insights into your writing habits, vocabulary usage, and productivity trends." 
+             <Analytics documents={documents} />
+          )}
+          
+          {currentView === View.PRICING && (
+             <Pricing />
+          )}
+
+          {currentView === View.RESEARCH && (
+             <ResearchLibrary 
+                items={libraryItems}
+                setItems={setLibraryItems}
              />
           )}
+          
+          {currentView === View.CALENDAR && (
+             <Calendar />
+          )}
+
+          {/* New Views Placeholders */}
           {currentView === View.COMMUNITY && (
              <PlaceholderView 
                title="Scholar Community" 
@@ -186,5 +272,3 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-export default App;

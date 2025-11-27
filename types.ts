@@ -47,6 +47,7 @@ export interface ChatMessage {
 export interface ResearchLink {
   title: string;
   uri: string;
+  links: ResearchLink[];
 }
 
 export interface ResearchResponse {
@@ -62,6 +63,23 @@ export interface Reference {
   title: string;
   source: string;
   formatted: string;
+}
+
+export interface LibraryItem extends Reference {
+  type: 'journal' | 'book' | 'website' | 'report' | 'other';
+  tags: string[];
+  pdfUrl?: string;
+  notes?: string;
+  readStatus: 'unread' | 'reading' | 'read';
+  folderId?: string;
+  isFavorite: boolean;
+  addedDate: Date;
+}
+
+export interface LibraryFolder {
+  id: string;
+  name: string;
+  count: number;
 }
 
 export interface ChartData {
@@ -85,6 +103,17 @@ export interface UniversityUpdate {
   sourceUrl?: string;
 }
 
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: Date;
+  type: 'deadline' | 'meeting' | 'milestone';
+  description?: string;
+  completed: boolean;
+  time?: string;
+  location?: string;
+}
+
 export enum View {
   DASHBOARD = 'DASHBOARD',
   EDITOR = 'EDITOR',
@@ -96,5 +125,6 @@ export enum View {
   CALENDAR = 'CALENDAR',
   ANALYTICS = 'ANALYTICS',
   COMMUNITY = 'COMMUNITY',
-  TOOLKIT = 'TOOLKIT'
+  TOOLKIT = 'TOOLKIT',
+  PRICING = 'PRICING'
 }

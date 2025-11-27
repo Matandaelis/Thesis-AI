@@ -1,17 +1,34 @@
 
 import React, { useState } from 'react';
-import { User, Bell, Lock, CreditCard, LogOut } from 'lucide-react';
+import { User, Bell, CreditCard, LogOut, Link, Fingerprint, Library, Cloud, CheckCircle2 } from 'lucide-react';
 
 export const Settings: React.FC = () => {
     const [activeTab, setActiveTab] = useState('profile');
 
+    const userIntegrations = [
+        {
+            category: 'Identity & Verification',
+            items: [
+                { name: 'ORCID iD', id: 'orcid', desc: 'Sync publication history & verify academic identity.', connected: true, icon: Fingerprint },
+                { name: 'LinkedIn', id: 'linkedin', desc: 'Verify professional credentials for marketplace experts.', connected: false, icon: User },
+            ]
+        },
+        {
+            category: 'Research & Storage',
+            items: [
+                { name: 'Zotero', id: 'zotero', desc: 'Sync your personal reference library.', connected: false, icon: Library },
+                { name: 'Google Drive', id: 'gdrive', desc: 'Auto-backup thesis drafts to your personal cloud.', connected: true, icon: Cloud },
+            ]
+        }
+    ];
+
     return (
-        <div className="p-4 md:p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-4xl mx-auto animate-fade-in">
             <h1 className="text-3xl font-bold font-serif text-slate-900 mb-8">Settings</h1>
 
             <div className="flex flex-col md:flex-row gap-8">
                 {/* Settings Sidebar */}
-                <div className="w-full md:w-64 space-y-2">
+                <div className="w-full md:w-64 space-y-2 shrink-0">
                     <button 
                         onClick={() => setActiveTab('profile')}
                         className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'profile' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
@@ -30,6 +47,12 @@ export const Settings: React.FC = () => {
                     >
                         <Bell size={18} /> <span>Notifications</span>
                     </button>
+                    <button 
+                        onClick={() => setActiveTab('integrations')}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'integrations' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
+                    >
+                        <Link size={18} /> <span>Integrations</span>
+                    </button>
                     
                     <div className="pt-8 mt-8 border-t border-slate-200">
                          <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50">
@@ -41,7 +64,7 @@ export const Settings: React.FC = () => {
                 {/* Content Area */}
                 <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
                     {activeTab === 'profile' && (
-                        <div className="space-y-6">
+                        <div className="space-y-6 animate-fade-in">
                             <h2 className="text-xl font-bold text-slate-800 mb-4">Profile Information</h2>
                             
                             <div className="flex items-center space-x-6">
@@ -85,7 +108,7 @@ export const Settings: React.FC = () => {
                     )}
 
                     {activeTab === 'billing' && (
-                        <div className="space-y-6">
+                        <div className="space-y-6 animate-fade-in">
                             <h2 className="text-xl font-bold text-slate-800">Subscription Plan</h2>
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
@@ -107,7 +130,7 @@ export const Settings: React.FC = () => {
                     )}
 
                     {activeTab === 'notifications' && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 animate-fade-in">
                             <h2 className="text-xl font-bold text-slate-800 mb-4">Notification Preferences</h2>
                             {['Email me about deadline reminders', 'Email me about marketplace offers', 'Notify me when AI analysis is complete'].map((item, idx) => (
                                 <div key={idx} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
@@ -118,6 +141,53 @@ export const Settings: React.FC = () => {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {activeTab === 'integrations' && (
+                         <div className="space-y-8 animate-fade-in">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">Account Connections</h2>
+                                    <p className="text-slate-500 text-sm">Link your personal accounts to import data.</p>
+                                </div>
+                                <span className="bg-teal-50 text-teal-700 text-xs font-bold px-3 py-1 rounded-full">2 Connected</span>
+                            </div>
+
+                            <div className="space-y-6">
+                                {userIntegrations.map((group, idx) => (
+                                    <div key={idx}>
+                                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{group.category}</h3>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {group.items.map((api) => (
+                                                <div key={api.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-teal-200 transition-colors bg-slate-50/50">
+                                                    <div className="flex items-center space-x-4">
+                                                        <div className={`p-2 rounded-lg ${api.connected ? 'bg-teal-100 text-teal-600' : 'bg-slate-200 text-slate-400'}`}>
+                                                            <api.icon size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <h4 className="font-bold text-slate-800">{api.name}</h4>
+                                                                {api.connected && <CheckCircle2 size={14} className="text-teal-500" />}
+                                                            </div>
+                                                            <p className="text-xs text-slate-500 max-w-sm hidden sm:block">{api.desc}</p>
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                            api.connected 
+                                                            ? 'bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200' 
+                                                            : 'bg-slate-900 text-white hover:bg-slate-800'
+                                                        }`}
+                                                    >
+                                                        {api.connected ? 'Disconnect' : 'Connect'}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>

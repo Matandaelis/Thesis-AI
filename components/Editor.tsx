@@ -5,13 +5,13 @@ import {
   Bold, Italic, List, AlignLeft, Sparkles, Search, MessageSquare, 
   BookOpen, ChevronRight, ExternalLink, Scissors, Maximize2, Minimize2, Pen,
   Eye, EyeOff, BarChart2, Book, FileText, Target, Mic, Volume2, Plus, PieChart, Trash2, Copy, BrainCircuit,
-  Clock, Pause, Play, Sigma, Menu, Layout, Layers, ArrowRight, History, RotateCcw, FileClock
+  Clock, Pause, Play, Sigma, Menu, Layout, Layers, ArrowRight, History, RotateCcw, FileClock, ChevronDown, Type, MoreHorizontal
 } from 'lucide-react';
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart as RePieChart, Pie,
   XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, Legend, ResponsiveContainer, Cell 
 } from 'recharts';
-import { Document, AISuggestion, University, ChatMessage, ResearchResponse, Reference, ChartData } from '../types';
+import { Document, AISuggestion, University, ChatMessage, ResearchResponse, Reference, ChartData, LibraryItem } from '../types';
 import { GeminiService } from '../services/geminiService';
 
 interface EditorProps {
@@ -19,6 +19,7 @@ interface EditorProps {
   university: University | null;
   onSave: (doc: Document) => void;
   onBack: () => void;
+  libraryItems: LibraryItem[];
 }
 
 interface OutlineItem {
@@ -36,8 +37,8 @@ interface Version {
   description?: string;
 }
 
-export const Editor: React.FC<EditorProps> = ({ document, university, onSave, onBack }) => {
-  const [content, setContent] = useState(document.content);
+export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university, onSave, onBack, libraryItems }) => {
+  const [content, setContent] = useState(thesisDoc.content);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
@@ -95,6 +96,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   const [citationFields, setCitationFields] = useState({ author: '', year: '', title: '', source: '' });
   const [citationResult, setCitationResult] = useState('');
   const [isGeneratingCitation, setIsGeneratingCitation] = useState(false);
+  const [showLibraryPicker, setShowLibraryPicker] = useState(false);
 
   // Voice State
   const [isListening, setIsListening] = useState(false);
@@ -104,15 +106,19 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   const [pomodoroActive, setPomodoroActive] = useState(false);
   const [pomodoroTime, setPomodoroTime] = useState(25 * 60); // 25 mins
 
+  // Formatting Dropdown State
+  const [isFormatMenuOpen, setIsFormatMenuOpen] = useState(false);
+  const formatMenuRef = useRef<HTMLDivElement>(null);
+
   // Text Selection
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [selectionRange, setSelectionRange] = useState<{start: number, end: number} | null>(null);
 
-  // Styles
+  // Styles - Defensively access properties to prevent undefined errors
   const editorStyle = {
-    fontFamily: university?.standards.font || 'Times New Roman',
-    fontSize: university?.standards.size ? `${university.standards.size}pt` : '12pt',
-    lineHeight: university?.standards.spacing === 'Double' ? '2.0' : university?.standards.spacing === '1.5' ? '1.5' : '1.5',
+    fontFamily: university?.standards?.font || 'Times New Roman',
+    fontSize: university?.standards?.size ? `${university.standards.size}pt` : '12pt',
+    lineHeight: university?.standards?.spacing === 'Double' ? '2.0' : university?.standards?.spacing === '1.5' ? '1.5' : '1.5',
   };
 
   // Effects
@@ -123,7 +129,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
     }
 
     const timer = setTimeout(() => {
-      onSave({ ...document, content, lastModified: new Date() });
+      onSave({ ...thesisDoc, content, lastModified: new Date() });
     }, 5000);
 
     const words = content.trim().split(/\s+/).filter(w => w.length > 0).length;
@@ -147,11 +153,22 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
     setOutline(newOutline);
 
     return () => clearTimeout(timer);
-  }, [content, document, onSave]);
+  }, [content, thesisDoc, onSave]);
   
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+        if (formatMenuRef.current && !formatMenuRef.current.contains(event.target as Node)) {
+            setIsFormatMenuOpen(false);
+        }
+    }
+    window.document.addEventListener("mousedown", handleClickOutside);
+    return () => window.document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Version History Loader
   useEffect(() => {
-    const savedVersions = localStorage.getItem(`doc_versions_${document.id}`);
+    const savedVersions = localStorage.getItem(`doc_versions_${thesisDoc.id}`);
     if (savedVersions) {
       try {
         setVersions(JSON.parse(savedVersions));
@@ -159,7 +176,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
         console.error("Failed to parse versions", e);
       }
     }
-  }, [document.id]);
+  }, [thesisDoc.id]);
 
   // Pomodoro Timer Effect
   useEffect(() => {
@@ -248,6 +265,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
     const newText = await GeminiService.rewriteText(selectedText, mode);
     const newContent = content.substring(0, selectionRange.start) + newText + content.substring(selectionRange.end);
     setContent(newContent);
+    setIsFormatMenuOpen(false); // Close menu if open
   };
 
   const handleAutocomplete = async () => {
@@ -321,7 +339,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
     };
     const updatedVersions = [newVersion, ...versions];
     setVersions(updatedVersions);
-    localStorage.setItem(`doc_versions_${document.id}`, JSON.stringify(updatedVersions));
+    localStorage.setItem(`doc_versions_${thesisDoc.id}`, JSON.stringify(updatedVersions));
   };
 
   const handleRestoreVersion = (version: Version) => {
@@ -335,7 +353,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   const handleDeleteVersion = (id: string) => {
     const updated = versions.filter(v => v.id !== id);
     setVersions(updated);
-    localStorage.setItem(`doc_versions_${document.id}`, JSON.stringify(updated));
+    localStorage.setItem(`doc_versions_${thesisDoc.id}`, JSON.stringify(updated));
   };
 
   // Citation Handlers
@@ -373,10 +391,48 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
     setCitationResult('');
     setCitationFields({ author: '', year: '', title: '', source: '' });
     setCitationModalOpen(false);
+    setShowLibraryPicker(false);
+    setIsFormatMenuOpen(false);
   };
   
+  const handleSelectFromLibrary = (item: LibraryItem) => {
+    setCitationFields({
+        author: item.author,
+        year: item.year,
+        title: item.title,
+        source: item.source
+    });
+    setCitationResult(item.formatted);
+    setShowLibraryPicker(false);
+  };
+
   const insertLatex = () => {
       setContent(prev => prev + " $ E = mc^2 $ ");
+  };
+
+  const handleFormatting = (type: 'bold' | 'italic' | 'list') => {
+      if (!textareaRef.current) return;
+      
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      const selectedText = content.substring(start, end);
+      let newText = '';
+
+      switch (type) {
+          case 'bold':
+              newText = `**${selectedText}**`;
+              break;
+          case 'italic':
+              newText = `*${selectedText}*`;
+              break;
+          case 'list':
+              newText = `\n- ${selectedText}`;
+              break;
+      }
+
+      const newContent = content.substring(0, start) + newText + content.substring(end);
+      setContent(newContent);
+      setIsFormatMenuOpen(false);
   };
 
   // Sections Generation
@@ -388,7 +444,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   const handleGenerateSectionContent = async (section: OutlineItem) => {
     setGeneratingSectionId(section.id);
     try {
-        const newText = await GeminiService.generateSectionContent(section.text, document.title, content);
+        const newText = await GeminiService.generateSectionContent(section.text, thesisDoc.title, content);
         // Find position to insert (after header)
         const insertionPoint = section.index + section.text.length;
         const newContent = content.slice(0, insertionPoint) + "\n\n" + newText + content.slice(insertionPoint);
@@ -438,14 +494,6 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   };
 
   // Utils
-  const replaceWord = (newWord: string) => {
-    if (selectionRange) {
-      const newContent = content.substring(0, selectionRange.start) + newWord + content.substring(selectionRange.end);
-      setContent(newContent);
-      setActiveTab('write');
-    }
-  };
-
   const handleSelect = () => {
     if (textareaRef.current) {
       setSelectionRange({
@@ -597,18 +645,39 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                     <Layout size={20} />
                  </button>
               )}
-              <h2 className="font-serif font-bold text-lg text-slate-800 truncate max-w-[150px] md:max-w-xs">{document.title}</h2>
+              <h2 className="font-serif font-bold text-lg text-slate-800 truncate max-w-[150px] md:max-w-xs">{thesisDoc.title}</h2>
             </div>
             
             <div className="flex items-center space-x-2 shrink-0">
-              <div className="hidden md:flex bg-slate-100 rounded-lg p-1 mr-2">
-                  <button onClick={() => handleRewrite('paraphrase')} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white hover:shadow-sm rounded-md transition-all">Paraphrase</button>
-                  <button onClick={() => handleRewrite('expand')} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white hover:shadow-sm rounded-md transition-all">Expand</button>
-                  <button onClick={() => setCitationModalOpen(true)} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white hover:shadow-sm rounded-md transition-all">Citation</button>
+              
+              {/* Formatting Dropdown */}
+              <div className="relative" ref={formatMenuRef}>
+                 <button 
+                   onClick={() => setIsFormatMenuOpen(!isFormatMenuOpen)}
+                   className="flex items-center space-x-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 text-sm font-medium transition-colors"
+                 >
+                    <Type size={16} />
+                    <span className="hidden sm:inline">Formatting</span>
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${isFormatMenuOpen ? 'rotate-180' : ''}`} />
+                 </button>
+
+                 {isFormatMenuOpen && (
+                    <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-fade-in-down">
+                       <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Style</div>
+                       <button onClick={() => handleFormatting('bold')} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 text-sm flex items-center gap-2"><Bold size={14}/> Bold</button>
+                       <button onClick={() => handleFormatting('italic')} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 text-sm flex items-center gap-2"><Italic size={14}/> Italic</button>
+                       <button onClick={() => handleFormatting('list')} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 text-sm flex items-center gap-2"><List size={14}/> Bullet List</button>
+                       
+                       <div className="h-px bg-slate-100 my-1"></div>
+                       <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">AI Edit</div>
+                       <button onClick={() => handleRewrite('paraphrase')} className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-indigo-700 text-sm flex items-center gap-2"><RefreshCw size={14}/> Paraphrase</button>
+                       <button onClick={() => handleRewrite('expand')} className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-indigo-700 text-sm flex items-center gap-2"><Maximize2 size={14}/> Expand</button>
+                       <button onClick={() => setCitationModalOpen(true)} className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-indigo-700 text-sm flex items-center gap-2"><Quote size={14}/> Insert Citation</button>
+                    </div>
+                 )}
               </div>
 
-              {/* Mobile rewrite dropdown could go here, for now keeping icons */}
-              <button onClick={() => setCitationModalOpen(true)} className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg" title="Citation"><Quote size={20} /></button>
+              <div className="h-6 w-px bg-slate-200 mx-2"></div>
 
               <button onClick={handleReadAloud} className={`p-2 rounded-lg tooltip ${isSpeaking ? 'bg-indigo-100 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`} title="Read Aloud">
                   <Volume2 size={20} />
@@ -712,7 +781,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
               <span className="hidden sm:inline">Reading Time: {Math.ceil(wordCount / 200)} min</span>
            </div>
            <div>
-              {document.lastModified ? `Saved ${document.lastModified.toLocaleTimeString()}` : 'Unsaved'}
+              {thesisDoc.lastModified ? `Saved ${thesisDoc.lastModified.toLocaleTimeString()}` : 'Unsaved'}
            </div>
         </div>
       </div>
@@ -1056,163 +1125,193 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                     </div>
                  </div>
                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                     {references.map((ref) => (
-                         <div key={ref.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-xs hover:border-purple-300 transition-colors">
-                             <div className="font-bold text-slate-800 mb-1">{ref.title}</div>
-                             <div className="text-slate-600 mb-1">{ref.author} • {ref.year}</div>
-                             <div className="text-slate-400 italic mb-2 truncate">{ref.source}</div>
-                             <div className="bg-purple-50 p-2 rounded text-slate-700 font-serif border border-purple-100">
-                                 {ref.formatted}
-                             </div>
-                             <div className="mt-2 flex justify-end space-x-2">
-                                 <button onClick={() => copyToClipboard(ref.formatted)} className="flex items-center space-x-1 text-purple-600 hover:text-purple-800 font-medium">
-                                     <Copy size={12} /> <span>Copy</span>
-                                 </button>
-                                 <button onClick={() => setReferences(prev => prev.filter(r => r.id !== ref.id))} className="text-slate-400 hover:text-red-500">
-                                     <Trash2 size={12} />
-                                 </button>
-                             </div>
-                         </div>
-                     ))}
-                     {references.length === 0 && <p className="text-center text-slate-400 text-sm mt-10 italic">Add sources to build your bibliography.</p>}
+                    {references.length === 0 ? (
+                        <div className="text-center text-slate-400 mt-10 p-4">
+                            <BookOpen className="mx-auto mb-2 opacity-50" size={32} />
+                            <p className="text-sm">Add references to generate bibliography.</p>
+                            <button onClick={() => setShowLibraryPicker(true)} className="mt-4 text-xs font-bold text-purple-600 hover:text-purple-800">+ Select from Library</button>
+                        </div>
+                    ) : (
+                        references.map((ref) => (
+                           <div key={ref.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:border-purple-300 transition-all text-xs">
+                               <p className="text-slate-800 font-medium mb-1">{ref.formatted}</p>
+                               <div className="flex justify-end gap-2 mt-2">
+                                  <button onClick={() => { navigator.clipboard.writeText(ref.formatted); alert("Copied"); }} className="text-slate-400 hover:text-purple-600"><Copy size={14}/></button>
+                                  <button onClick={() => setReferences(prev => prev.filter(r => r.id !== ref.id))} className="text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+                               </div>
+                           </div>
+                        ))
+                    )}
                  </div>
-                 {references.length > 0 && (
-                     <div className="p-4 border-t border-slate-200 bg-white">
-                         <button onClick={() => copyToClipboard(references.map(r => r.formatted).join('\n'))} className="w-full py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium">
-                             Copy Full Bibliography
-                         </button>
-                     </div>
-                 )}
+             </div>
+          )}
+
+          {/* Tab Content: Chat */}
+          {activeTab === 'chat' && (
+             <div className="flex-1 flex flex-col bg-slate-50">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                   {chatMessages.map((msg) => (
+                      <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                         <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-700 rounded-bl-none'}`}>
+                            {msg.text}
+                         </div>
+                      </div>
+                   ))}
+                   {isChatting && (
+                      <div className="flex justify-start">
+                         <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center gap-2">
+                            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-75"></div>
+                            <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-150"></div>
+                         </div>
+                      </div>
+                   )}
+                </div>
+                <div className="p-4 bg-white border-t border-slate-200">
+                   <div className="relative">
+                      <input 
+                         className="w-full bg-slate-100 border-none rounded-xl pl-4 pr-12 py-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                         placeholder="Ask AI Supervisor..."
+                         value={chatInput}
+                         onChange={(e) => setChatInput(e.target.value)}
+                         onKeyDown={(e) => e.key === 'Enter' && handleChat()}
+                         disabled={isChatting}
+                      />
+                      <button 
+                         onClick={handleChat}
+                         disabled={!chatInput || isChatting}
+                         className="absolute right-2 top-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:bg-slate-300"
+                      >
+                         <ArrowRight size={16} />
+                      </button>
+                   </div>
+                </div>
              </div>
           )}
 
           {/* Tab Content: Thesaurus */}
           {activeTab === 'thesaurus' && (
-             <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
-                <h3 className="font-bold text-slate-800 mb-2">Synonyms for "{selectedWord}"</h3>
-                {isLoadingSynonyms ? (
-                   <div className="flex justify-center p-8"><RefreshCw className="animate-spin text-indigo-600" /></div>
-                ) : (
-                   <div className="space-y-2">
-                      {synonyms.length > 0 ? synonyms.map((word, i) => (
-                         <button key={i} onClick={() => replaceWord(word)} className="w-full text-left p-3 bg-white border border-slate-200 rounded hover:border-indigo-500 hover:text-indigo-700 text-sm font-medium transition-colors">
-                            {word}
-                         </button>
-                      )) : <p className="text-slate-500 text-sm">No synonyms found.</p>}
-                   </div>
-                )}
+             <div className="flex-1 flex flex-col bg-slate-50">
+                <div className="p-4 bg-white border-b border-slate-200">
+                   <h3 className="text-sm font-bold text-slate-700 mb-1">Academic Thesaurus</h3>
+                   <p className="text-xs text-slate-500">Selected: <span className="font-bold text-slate-800">"{selectedWord}"</span></p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                   {isLoadingSynonyms ? (
+                      <div className="flex justify-center p-8"><RefreshCw className="animate-spin text-slate-400" /></div>
+                   ) : synonyms.length > 0 ? (
+                      <div className="space-y-2">
+                         {synonyms.map((word, i) => (
+                            <button 
+                              key={i} 
+                              onClick={() => {
+                                 const start = selectionRange?.start || 0;
+                                 const end = selectionRange?.end || 0;
+                                 const newContent = content.substring(0, start) + word + content.substring(end);
+                                 setContent(newContent);
+                              }}
+                              className="w-full text-left p-3 bg-white rounded-lg border border-slate-200 hover:border-teal-500 hover:shadow-sm text-sm font-medium text-slate-700 transition-all flex justify-between items-center group"
+                            >
+                               <span>{word}</span>
+                               <span className="text-[10px] text-teal-600 opacity-0 group-hover:opacity-100 font-bold uppercase">Replace</span>
+                            </button>
+                         ))}
+                      </div>
+                   ) : (
+                      <p className="text-center text-slate-400 text-sm mt-10">Select a word in the editor and click the book icon to find academic synonyms.</p>
+                   )}
+                </div>
              </div>
           )}
 
-          {/* Tab Content: Chat (Reused logic) */}
-          {activeTab === 'chat' && (
-            <div className="flex-1 flex flex-col bg-slate-50">
-               <div className="flex-1 flex flex-col">
-                   <div className="flex-1 overflow-y-auto p-4 space-y-2">{chatMessages.map(m => <div key={m.id} className={`p-2 rounded text-xs ${m.role === 'user' ? 'bg-blue-600 text-white self-end' : 'bg-white'}`}>{m.text}</div>)}
-                   {isChatting && <div className="p-2 rounded text-xs bg-white text-slate-500 italic flex items-center gap-1"><BrainCircuit size={12} className="animate-pulse"/> Thinking...</div>}
-                   </div>
-                   <div className="p-2"><input className="w-full p-2 rounded" placeholder="Ask Supervisor..." onKeyDown={(e: any) => e.key === 'Enter' && handleChat()} onChange={(e) => setChatInput(e.target.value)} value={chatInput} /></div>
-               </div>
-            </div>
-          )}
         </div>
       )}
 
       {/* Citation Modal */}
       {citationModalOpen && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-[500px]">
-            <h3 className="text-xl font-bold mb-4 font-serif">Citation Generator</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Author(s)</label>
-                    <input 
-                      className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                      placeholder="e.g. Smith, J. & Doe, A."
-                      value={citationFields.author}
-                      onChange={(e) => setCitationFields({...citationFields, author: e.target.value})}
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Year</label>
-                    <input 
-                      className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                      placeholder="e.g. 2023"
-                      value={citationFields.year}
-                      onChange={(e) => setCitationFields({...citationFields, year: e.target.value})}
-                    />
-                 </div>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 animate-scale-in">
+              <div className="flex justify-between items-center mb-6">
+                 <h3 className="font-bold text-lg text-slate-800">Generate Citation</h3>
+                 <button onClick={resetCitationModal} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
-                <input 
-                  className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="e.g. The Impact of AI on Education"
-                  value={citationFields.title}
-                  onChange={(e) => setCitationFields({...citationFields, title: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Source (Journal, Publisher, URL)</label>
-                <input 
-                  className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="e.g. Journal of EdTech or https://..."
-                  value={citationFields.source}
-                  onChange={(e) => setCitationFields({...citationFields, source: e.target.value})}
-                />
-              </div>
-              
-              {citationResult && (
-                <div className="bg-slate-50 p-3 rounded border border-slate-200 mt-2">
-                  <p className="text-xs text-slate-500 uppercase mb-1">APA 7th Edition Result:</p>
-                  <p className="text-sm font-serif select-all">{citationResult}</p>
+
+              {!showLibraryPicker ? (
+                <>
+                  <div className="space-y-4 mb-6">
+                      <input 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="Author (e.g. Smith, J.)"
+                        value={citationFields.author}
+                        onChange={(e) => setCitationFields({...citationFields, author: e.target.value})}
+                      />
+                      <input 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="Year (e.g. 2023)"
+                        value={citationFields.year}
+                        onChange={(e) => setCitationFields({...citationFields, year: e.target.value})}
+                      />
+                      <input 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="Title of Work"
+                        value={citationFields.title}
+                        onChange={(e) => setCitationFields({...citationFields, title: e.target.value})}
+                      />
+                      <input 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="Source (Publisher/Journal)"
+                        value={citationFields.source}
+                        onChange={(e) => setCitationFields({...citationFields, source: e.target.value})}
+                      />
+                  </div>
+                  
+                  {citationResult && (
+                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-6 text-sm italic text-slate-700">
+                          {citationResult}
+                      </div>
+                  )}
+
+                  <div className="flex gap-3">
+                      {!citationResult ? (
+                          <>
+                            <button onClick={() => setShowLibraryPicker(true)} className="flex-1 py-2 text-indigo-600 border border-indigo-200 rounded-lg font-medium hover:bg-indigo-50">Select from Library</button>
+                            <button onClick={handleGenerateCitation} disabled={isGeneratingCitation} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                                {isGeneratingCitation ? <RefreshCw className="animate-spin" size={16}/> : <Sparkles size={16}/>} Generate
+                            </button>
+                          </>
+                      ) : (
+                          <>
+                            <button onClick={clearCitationForm} className="flex-1 py-2 text-slate-600 font-medium hover:bg-slate-50">Back</button>
+                            <button onClick={insertCitation} className="flex-1 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700">Insert Citation</button>
+                          </>
+                      )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col h-[400px]">
+                   <div className="flex justify-between items-center mb-2">
+                       <h4 className="font-bold text-slate-700 text-sm">Select Reference</h4>
+                       <button onClick={() => setShowLibraryPicker(false)} className="text-xs text-indigo-600">Manual Entry</button>
+                   </div>
+                   <div className="flex-1 overflow-y-auto space-y-2 border border-slate-200 rounded-lg p-2 bg-slate-50">
+                       {libraryItems.map(item => (
+                           <button 
+                             key={item.id} 
+                             onClick={() => handleSelectFromLibrary(item)}
+                             className="w-full text-left p-3 bg-white rounded border border-slate-200 hover:border-indigo-400 hover:shadow-sm transition-all text-xs"
+                           >
+                               <div className="font-bold text-slate-800">{item.title}</div>
+                               <div className="text-slate-500">{item.author}, {item.year}</div>
+                           </button>
+                       ))}
+                       {libraryItems.length === 0 && <p className="text-center text-slate-400 mt-10">Library is empty.</p>}
+                   </div>
                 </div>
               )}
-
-              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
-                <button 
-                  onClick={clearCitationForm}
-                  className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg text-sm mr-auto"
-                >
-                  Clear
-                </button>
-                <button 
-                  onClick={resetCitationModal}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                {!citationResult ? (
-                  <button 
-                    onClick={handleGenerateCitation}
-                    disabled={isGeneratingCitation}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center justify-center space-x-2"
-                  >
-                    {isGeneratingCitation && <RefreshCw size={14} className="animate-spin" />}
-                    <span>Generate</span>
-                  </button>
-                ) : (
-                  <>
-                     <button 
-                        onClick={() => copyToClipboard(citationResult)}
-                        className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center justify-center space-x-2"
-                     >
-                        <Copy size={16} /> <span>Copy</span>
-                     </button>
-                     <button 
-                        onClick={insertCitation}
-                        className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-                     >
-                        Insert
-                     </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+           </div>
         </div>
       )}
+
     </div>
   );
 };

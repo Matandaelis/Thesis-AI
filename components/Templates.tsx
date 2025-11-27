@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
 import { University } from '../types';
-import { School, ArrowRight, X, Check, Info } from 'lucide-react';
+import { School, ArrowRight, X, Check, Info, Settings, Type, AlignJustify, Book } from 'lucide-react';
 
 interface TemplatesProps {
   onSelect: (u: University) => void;
 }
 
+// Pre-defined universities
 const universities: University[] = [
   {
     id: 'uon',
@@ -36,6 +37,13 @@ const universities: University[] = [
 
 export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
   const [selectedUni, setSelectedUni] = useState<University | null>(null);
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  
+  // Custom University State
+  const [customConfig, setCustomConfig] = useState<Partial<University>>({
+    name: '',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  });
 
   const handleConfirm = () => {
     if (selectedUni) {
@@ -44,8 +52,21 @@ export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
     }
   };
 
+  const handleCustomSubmit = () => {
+    if (customConfig.name && customConfig.standards) {
+        const newUni: University = {
+            id: `custom-${Date.now()}`,
+            name: customConfig.name,
+            logo: 'https://picsum.photos/100/100?grayscale',
+            standards: customConfig.standards
+        };
+        onSelect(newUni);
+        setIsCustomizing(false);
+    }
+  };
+
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto relative">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto relative animate-fade-in">
       <div className="text-center mb-12">
         <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">Select your University</h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -85,10 +106,18 @@ export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
         ))}
         
         {/* Custom Option */}
-        <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center hover:bg-slate-100 cursor-pointer transition-colors">
-          <School className="text-slate-400 mb-4" size={48} />
-          <h3 className="font-bold text-slate-600">Other Institution</h3>
-          <p className="text-xs text-center text-slate-500 mt-2">Configure manually or upload guidelines</p>
+        <div 
+          onClick={() => setIsCustomizing(true)}
+          className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center hover:bg-slate-100 cursor-pointer transition-colors group"
+        >
+          <div className="w-20 h-20 rounded-full bg-slate-200 mb-4 flex items-center justify-center group-hover:bg-teal-100 group-hover:text-teal-600 transition-colors">
+             <Settings size={32} className="text-slate-400 group-hover:text-teal-600" />
+          </div>
+          <h3 className="font-bold text-slate-600 group-hover:text-teal-700">Custom Institution</h3>
+          <p className="text-xs text-center text-slate-500 mt-2">Manually configure font, spacing & styles</p>
+          <button className="mt-6 w-full py-2 bg-transparent border border-slate-300 text-slate-500 font-medium rounded-lg group-hover:border-teal-500 group-hover:text-teal-600 transition-colors">
+              Configure
+          </button>
         </div>
       </div>
 
@@ -119,27 +148,31 @@ export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
                   
                   <div className="divide-y divide-slate-200/50">
                       <div className="flex justify-between items-center py-2 text-sm">
-                          <span className="text-slate-600">Font Family</span>
+                          <div className="flex items-center gap-2 text-slate-600">
+                              <Type size={14} /> <span>Font Family</span>
+                          </div>
                           <span className="font-bold text-slate-800 font-mono">{selectedUni.standards.font}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 text-sm">
-                          <span className="text-slate-600">Font Size</span>
+                          <div className="flex items-center gap-2 text-slate-600">
+                              <Type size={14} /> <span>Font Size</span>
+                          </div>
                           <span className="font-bold text-slate-800 font-mono">{selectedUni.standards.size}pt</span>
                       </div>
                       <div className="flex justify-between items-center py-2 text-sm">
-                          <span className="text-slate-600">Line Spacing</span>
+                          <div className="flex items-center gap-2 text-slate-600">
+                              <AlignJustify size={14} /> <span>Line Spacing</span>
+                          </div>
                           <span className="font-bold text-slate-800 font-mono">{selectedUni.standards.spacing}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 text-sm">
-                          <span className="text-slate-600">Citation Style</span>
+                          <div className="flex items-center gap-2 text-slate-600">
+                              <Book size={14} /> <span>Citation Style</span>
+                          </div>
                           <span className="font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded text-xs border border-teal-100">{selectedUni.standards.citationStyle}</span>
                       </div>
                   </div>
               </div>
-
-              <p className="text-xs text-slate-500 mb-6 text-center italic">
-                 Do you want to apply these standards to your new document? You can manually override them later.
-              </p>
 
               <div className="flex gap-3">
                   <button 
@@ -153,6 +186,109 @@ export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
                     className="flex-1 py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2 shadow-lg shadow-teal-600/20 transition-all"
                   >
                     <Check size={18} /> Apply & Create
+                  </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Custom University Modal */}
+      {isCustomizing && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in backdrop-blur-sm">
+           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 relative">
+              <button 
+                onClick={() => setIsCustomizing(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
+              >
+                <X size={20} />
+              </button>
+
+              <h2 className="text-xl font-bold text-slate-900 mb-1">Custom Institution</h2>
+              <p className="text-sm text-slate-500 mb-6">Define your document standards manually.</p>
+
+              <div className="space-y-4">
+                  <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-1">Institution Name</label>
+                      <input 
+                        type="text" 
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 outline-none"
+                        placeholder="e.g. Oxford University"
+                        value={customConfig.name}
+                        onChange={(e) => setCustomConfig({...customConfig, name: e.target.value})}
+                      />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Font Family</label>
+                          <select 
+                             className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none"
+                             value={customConfig.standards?.font}
+                             onChange={(e) => setCustomConfig({...customConfig, standards: {...customConfig.standards!, font: e.target.value}})}
+                          >
+                             <option value="Times New Roman">Times New Roman</option>
+                             <option value="Arial">Arial</option>
+                             <option value="Calibri">Calibri</option>
+                             <option value="Helvetica">Helvetica</option>
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Font Size</label>
+                          <select 
+                             className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none"
+                             value={customConfig.standards?.size}
+                             onChange={(e) => setCustomConfig({...customConfig, standards: {...customConfig.standards!, size: e.target.value}})}
+                          >
+                             <option value="10">10pt</option>
+                             <option value="11">11pt</option>
+                             <option value="12">12pt</option>
+                          </select>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Line Spacing</label>
+                          <select 
+                             className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none"
+                             value={customConfig.standards?.spacing}
+                             onChange={(e) => setCustomConfig({...customConfig, standards: {...customConfig.standards!, spacing: e.target.value}})}
+                          >
+                             <option value="1.0">Single (1.0)</option>
+                             <option value="1.5">1.5 Lines</option>
+                             <option value="Double">Double (2.0)</option>
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Citation Style</label>
+                          <select 
+                             className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none"
+                             value={customConfig.standards?.citationStyle}
+                             onChange={(e) => setCustomConfig({...customConfig, standards: {...customConfig.standards!, citationStyle: e.target.value}})}
+                          >
+                             <option value="APA 7th">APA 7th</option>
+                             <option value="Harvard">Harvard</option>
+                             <option value="MLA 9">MLA 9</option>
+                             <option value="IEEE">IEEE</option>
+                             <option value="Chicago">Chicago</option>
+                          </select>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="mt-8 flex gap-3">
+                  <button 
+                    onClick={() => setIsCustomizing(false)}
+                    className="flex-1 py-3 text-slate-600 font-medium hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleCustomSubmit}
+                    disabled={!customConfig.name}
+                    className="flex-1 py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Check size={18} /> Save & Apply
                   </button>
               </div>
            </div>

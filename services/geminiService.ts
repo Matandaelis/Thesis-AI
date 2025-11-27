@@ -488,6 +488,46 @@ export const GeminiService = {
     } catch (e) { return "Error checking paper."; }
   },
 
+  async generateAnalyticsReport(docsSummary: string): Promise<any> {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `
+                You are a thesis performance analyst. Analyze the following writing statistics for a student and provide 3 key insights.
+                
+                Data:
+                ${docsSummary}
+                
+                Return a strictly valid JSON object with this schema:
+                { 
+                  "peakPerformance": "One sentence about their best working time or habit.", 
+                  "academicTone": "One sentence about their writing style improvement.", 
+                  "goalProjection": "One sentence predicting when they will finish." 
+                }
+            `,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        peakPerformance: { type: Type.STRING },
+                        academicTone: { type: Type.STRING },
+                        goalProjection: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+        return JSON.parse(response.text || '{}');
+    } catch (error) {
+        console.error("Analytics Report Error", error);
+        return {
+            peakPerformance: "Keep writing to generate data.",
+            academicTone: "Maintain a formal tone.",
+            goalProjection: "Set a deadline to stay on track."
+        };
+    }
+  },
+
   // --- GENERIC TOOLKIT HANDLER ---
   async runGenericTool(toolId: string, input: string): Promise<string> {
     let prompt = '';
