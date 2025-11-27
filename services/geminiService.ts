@@ -370,6 +370,30 @@ export const GeminiService = {
       return null;
     }
   },
+  
+  async generateSectionContent(title: string, thesisTitle: string, context: string): Promise<string> {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `
+          You are writing a specific section for an academic thesis titled "${thesisTitle}".
+          Write the content for the section heading: "${title}".
+          
+          Context so far (preceding text): "${context.substring(Math.max(0, context.length - 5000))}"
+          
+          Instructions:
+          - Write academic, formal content suitable for a thesis.
+          - Write approximately 300-500 words.
+          - Ensure smooth flow from previous context if applicable.
+          - Do NOT repeat the heading title in your output.
+          - Use proper paragraph structure.
+        `
+      });
+      return response.text || "";
+    } catch (error) {
+      return "";
+    }
+  },
 
   // --- TOOLKIT FEATURES ---
 
@@ -462,5 +486,97 @@ export const GeminiService = {
       });
       return response.text || "Failed to check paper.";
     } catch (e) { return "Error checking paper."; }
+  },
+
+  // --- GENERIC TOOLKIT HANDLER ---
+  async runGenericTool(toolId: string, input: string): Promise<string> {
+    let prompt = '';
+    let model = 'gemini-2.5-flash';
+    let toolsConfig = undefined;
+
+    switch (toolId) {
+      case 't1': // Abstract
+        prompt = `Summarize the following text into a formal, structured academic abstract (approx 250 words). Include Background, Methods, Results, and Conclusion.\n\nText: "${input}"`;
+        break;
+      case 't2': // Title
+        prompt = `Generate 5 engaging and academically rigorous titles for a thesis based on this abstract/content:\n\n"${input}"`;
+        break;
+      case 't3': // Passive Voice
+        prompt = `Rewrite the following text to minimize passive voice and improve directness, maintaining an academic tone:\n\n"${input}"`;
+        break;
+      case 't4': // Transitions
+        prompt = `Analyze the following text and suggest better transition words or phrases to improve flow and cohesion:\n\n"${input}"`;
+        break;
+      case 't5': // Readability
+        prompt = `Analyze the readability of the text below. Estimate the Flesch-Kincaid score, identify complex sentences, and suggest simplifications.\n\nText: "${input}"`;
+        break;
+      case 't6': // Originality (Simulated Plagiarism)
+        prompt = `Analyze this text for originality. Highlight clichéd phrases, overused academic tropes, or sections that sound generic. Suggest ways to make the voice more unique.\n\nText: "${input}"`;
+        break;
+      case 't7': // Paraphrase
+        prompt = `Paraphrase the following text to improve clarity and originality, ensuring the meaning remains unchanged. suitable for a thesis:\n\n"${input}"`;
+        break;
+      case 't8': // LaTeX
+        prompt = `Convert the following mathematical expression or text into valid LaTeX code:\n\n"${input}"`;
+        break;
+      case 't9': // Argument Logic
+        prompt = `Critique the logical strength of the following argument. Identify fallacies, weak premises, or unsupported claims:\n\n"${input}"`;
+        model = 'gemini-3-pro-preview';
+        break;
+      case 't10': // Thesis Statement
+        prompt = `Generate 3 strong, arguable thesis statements based on this topic or problem description:\n\n"${input}"`;
+        break;
+      case 't12': // Methodology
+        prompt = `Outline a robust research methodology for the following study topic. Include research design, population, sampling, and data analysis techniques:\n\nTopic: "${input}"`;
+        model = 'gemini-3-pro-preview';
+        break;
+      case 't13': // Reference Manager (Formatter)
+        prompt = `Format the following raw reference information into perfect APA 7th Edition citations:\n\n"${input}"`;
+        break;
+      case 't14': // Survey Gen
+        prompt = `Create a 10-item questionnaire/survey for a study on: "${input}". Ensure questions are neutral and academically sound.`;
+        break;
+      case 't15': // Ethics
+        prompt = `Generate a research ethics checklist for a study involving: "${input}". Highlight potential risks and required consents.`;
+        break;
+      case 't16': // Text Chat (Q&A)
+        prompt = `You are a research assistant. Answer the user's request based on general academic knowledge or refine the following text:\n\n"${input}"`;
+        break;
+      case 't17': // Keywords
+        prompt = `Extract 5-10 high-impact SEO keywords and academic descriptors from this text:\n\n"${input}"`;
+        break;
+      case 't22': // Conference Finder
+        prompt = `Find upcoming academic conferences (2024-2025) relevant to this topic: "${input}". Include dates and locations if found.`;
+        toolsConfig = [{ googleSearch: {} }];
+        break;
+      case 't23': // CV Builder
+        prompt = `Extract key research skills, methodologies, and subject matter expertise from this thesis abstract for a generic CV/Resume:\n\n"${input}"`;
+        break;
+      case 't26': // Data Mockup
+        prompt = `Generate a realistic dummy dataset (in CSV format) for a study about: "${input}". Include 10 rows.`;
+        break;
+      case 't27': // Stat Test
+        prompt = `Recommend the most appropriate statistical test(s) for the following research question and data type:\n\n"${input}"`;
+        break;
+      case 't29': // Codebook
+        prompt = `Generate a qualitative coding framework (codebook) with themes and sub-themes for a study on:\n\n"${input}"`;
+        break;
+      default:
+        return "Tool not configured yet.";
+    }
+
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          tools: toolsConfig,
+        }
+      });
+      return response.text || "No response generated.";
+    } catch (error) {
+      console.error("Tool Error:", error);
+      return "An error occurred while running the tool.";
+    }
   }
 };

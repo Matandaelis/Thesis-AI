@@ -5,7 +5,7 @@ import {
   Bold, Italic, List, AlignLeft, Sparkles, Search, MessageSquare, 
   BookOpen, ChevronRight, ExternalLink, Scissors, Maximize2, Minimize2, Pen,
   Eye, EyeOff, BarChart2, Book, FileText, Target, Mic, Volume2, Plus, PieChart, Trash2, Copy, BrainCircuit,
-  Clock, Pause, Play, Sigma, Menu, Layout
+  Clock, Pause, Play, Sigma, Menu, Layout, Layers, ArrowRight, History, RotateCcw, FileClock
 } from 'lucide-react';
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart as RePieChart, Pie,
@@ -28,12 +28,20 @@ interface OutlineItem {
   index: number;
 }
 
+interface Version {
+  id: string;
+  timestamp: number;
+  content: string;
+  wordCount: number;
+  description?: string;
+}
+
 export const Editor: React.FC<EditorProps> = ({ document, university, onSave, onBack }) => {
   const [content, setContent] = useState(document.content);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
-  const [activeTab, setActiveTab] = useState<'write' | 'review' | 'research' | 'chat' | 'thesaurus' | 'figures' | 'references'>('write');
+  const [activeTab, setActiveTab] = useState<'write' | 'review' | 'research' | 'chat' | 'thesaurus' | 'figures' | 'references' | 'sections' | 'history'>('write');
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isStructureOpen, setIsStructureOpen] = useState(true); // Control left sidebar
   
@@ -48,6 +56,9 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
 
   // Outline
   const [outline, setOutline] = useState<OutlineItem[]>([]);
+
+  // Sections Generation State
+  const [generatingSectionId, setGeneratingSectionId] = useState<string | null>(null);
 
   // Research State
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,6 +86,9 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   const [references, setReferences] = useState<Reference[]>([]);
   const [refInput, setRefInput] = useState('');
   const [isParsingRef, setIsParsingRef] = useState(false);
+
+  // Version History State
+  const [versions, setVersions] = useState<Version[]>([]);
 
   // Citation Modal State
   const [citationModalOpen, setCitationModalOpen] = useState(false);
@@ -135,6 +149,18 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
     return () => clearTimeout(timer);
   }, [content, document, onSave]);
   
+  // Version History Loader
+  useEffect(() => {
+    const savedVersions = localStorage.getItem(`doc_versions_${document.id}`);
+    if (savedVersions) {
+      try {
+        setVersions(JSON.parse(savedVersions));
+      } catch (e) {
+        console.error("Failed to parse versions", e);
+      }
+    }
+  }, [document.id]);
+
   // Pomodoro Timer Effect
   useEffect(() => {
     let interval: any;
@@ -284,6 +310,34 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
     finally { setIsParsingRef(false); }
   };
 
+  // Version History Handlers
+  const handleSaveVersion = (description = 'Snapshot') => {
+    const newVersion: Version = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      content: content,
+      wordCount: content.trim().split(/\s+/).length,
+      description
+    };
+    const updatedVersions = [newVersion, ...versions];
+    setVersions(updatedVersions);
+    localStorage.setItem(`doc_versions_${document.id}`, JSON.stringify(updatedVersions));
+  };
+
+  const handleRestoreVersion = (version: Version) => {
+    if (window.confirm(`Are you sure you want to revert to the version from ${new Date(version.timestamp).toLocaleString()}? Unsaved changes will be lost.`)) {
+        // Save current state as a backup before reverting
+        handleSaveVersion('Auto-Backup before Revert');
+        setContent(version.content);
+    }
+  };
+
+  const handleDeleteVersion = (id: string) => {
+    const updated = versions.filter(v => v.id !== id);
+    setVersions(updated);
+    localStorage.setItem(`doc_versions_${document.id}`, JSON.stringify(updated));
+  };
+
   // Citation Handlers
   const handleGenerateCitation = async () => {
     if (!citationFields.title && !citationFields.source) return;
@@ -323,6 +377,27 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   
   const insertLatex = () => {
       setContent(prev => prev + " $ E = mc^2 $ ");
+  };
+
+  // Sections Generation
+  const handleGenerateOutline = () => {
+    const standardOutline = `Chapter 1: Introduction\n1.1 Background of the Study\n1.2 Problem Statement\n1.3 Objectives\n\nChapter 2: Literature Review\n2.1 Theoretical Framework\n2.2 Empirical Review\n\nChapter 3: Methodology\n3.1 Research Design\n3.2 Data Collection\n\nChapter 4: Results\n\nChapter 5: Discussion\n\nChapter 6: Conclusion\n\nReferences`;
+    setContent(prev => prev + (prev ? '\n\n' : '') + standardOutline);
+  };
+
+  const handleGenerateSectionContent = async (section: OutlineItem) => {
+    setGeneratingSectionId(section.id);
+    try {
+        const newText = await GeminiService.generateSectionContent(section.text, document.title, content);
+        // Find position to insert (after header)
+        const insertionPoint = section.index + section.text.length;
+        const newContent = content.slice(0, insertionPoint) + "\n\n" + newText + content.slice(insertionPoint);
+        setContent(newContent);
+    } catch(e) {
+        console.error(e);
+    } finally {
+        setGeneratingSectionId(null);
+    }
   };
 
   // Browser API Handlers
@@ -558,6 +633,10 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                 <Sparkles size={18} />
                 <span className="hidden md:inline">Review</span>
               </button>
+              <button className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors shadow-sm whitespace-nowrap" onClick={() => setActiveTab('sections')}>
+                <Layers size={18} />
+                <span className="hidden md:inline">Sections</span>
+              </button>
 
               <button onClick={() => setIsFocusMode(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg" title="Focus Mode"><Maximize2 size={20} /></button>
             </div>
@@ -603,6 +682,9 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                 <button onClick={() => setActiveTab(activeTab === 'research' ? 'write' : 'research')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'research' ? 'bg-teal-100 text-teal-700' : 'text-slate-600 hover:bg-slate-200'}`}>
                    <Search size={14} /> <span>Research</span>
                 </button>
+                <button onClick={() => setActiveTab(activeTab === 'history' ? 'write' : 'history')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'history' ? 'bg-amber-100 text-amber-700' : 'text-slate-600 hover:bg-slate-200'}`}>
+                   <History size={14} /> <span>History</span>
+                </button>
                 <button onClick={() => setActiveTab(activeTab === 'chat' ? 'write' : 'chat')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'chat' ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-200'}`}>
                    <MessageSquare size={14} /> <span>Chat</span>
                 </button>
@@ -644,11 +726,123 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
              {['review', 'research', 'chat'].map(t => (
                  <button key={t} onClick={() => setActiveTab(t as any)} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 capitalize ${activeTab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>{t}</button>
              ))}
+             <button onClick={() => setActiveTab('sections')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'sections' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Sections</button>
              <button onClick={() => setActiveTab('figures')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'figures' ? 'border-orange-600 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Figures</button>
-             <button onClick={() => setActiveTab('references')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'references' ? 'border-purple-600 text-purple-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Biblio</button>
+             <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'history' ? 'border-amber-600 text-amber-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>History</button>
              
              <button onClick={() => setActiveTab('write')} className="px-3 text-slate-400 hover:text-slate-600"><X size={18} /></button>
           </div>
+
+          {/* Tab Content: Sections */}
+          {activeTab === 'sections' && (
+            <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+               <div className="p-4 bg-white border-b border-slate-200">
+                  <h3 className="text-sm font-bold text-slate-700 mb-2">Thesis Sections</h3>
+                  <p className="text-xs text-slate-500">Manage your document structure and generate draft content for specific sections.</p>
+               </div>
+               
+               <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {outline.length === 0 ? (
+                    <div className="text-center p-6 bg-white rounded-lg border border-dashed border-slate-300">
+                      <Layers className="mx-auto text-slate-300 mb-2" size={32} />
+                      <p className="text-sm text-slate-600 font-medium mb-1">No sections detected</p>
+                      <p className="text-xs text-slate-400 mb-4">Start by creating a standard outline.</p>
+                      <button 
+                        onClick={handleGenerateOutline}
+                        className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors"
+                      >
+                        Generate Standard Outline
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                       {outline.map((section) => (
+                         <div key={section.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:border-emerald-300 transition-all">
+                            <div className="flex justify-between items-start mb-2">
+                               <h4 className={`text-sm font-bold text-slate-800 ${section.level === 1 ? '' : 'ml-4'}`}>{section.text}</h4>
+                               <button onClick={() => scrollToSection(section.index)} className="text-slate-400 hover:text-emerald-600">
+                                 <ArrowRight size={14} />
+                               </button>
+                            </div>
+                            <div className="flex space-x-2 mt-2">
+                               <button 
+                                 onClick={() => handleGenerateSectionContent(section)}
+                                 disabled={generatingSectionId === section.id}
+                                 className="flex-1 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded text-xs font-medium hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors flex items-center justify-center space-x-1"
+                               >
+                                 {generatingSectionId === section.id ? <RefreshCw className="animate-spin" size={12} /> : <Pen size={12} />}
+                                 <span>Draft Content</span>
+                               </button>
+                            </div>
+                         </div>
+                       ))}
+                       
+                       <div className="pt-4 border-t border-slate-200 mt-4">
+                          <button 
+                            onClick={handleGenerateOutline}
+                            className="w-full py-2 text-xs text-slate-500 border border-dashed border-slate-300 rounded hover:bg-slate-100 hover:text-slate-800"
+                          >
+                            Append Standard Sections
+                          </button>
+                       </div>
+                    </div>
+                  )}
+               </div>
+            </div>
+          )}
+
+          {/* Tab Content: Version History */}
+          {activeTab === 'history' && (
+             <div className="flex-1 flex flex-col bg-slate-50">
+                <div className="p-4 bg-white border-b border-slate-200">
+                    <h3 className="text-sm font-bold text-slate-700 mb-2">Version History</h3>
+                    <p className="text-xs text-slate-500 mb-3">Snapshots are saved locally.</p>
+                    <button 
+                        onClick={() => handleSaveVersion('Manual Snapshot')}
+                        className="w-full bg-amber-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-700 flex items-center justify-center space-x-2 transition-colors"
+                    >
+                        <Plus size={16} /> <span>Create Snapshot</span>
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {versions.length === 0 ? (
+                        <div className="text-center text-slate-400 mt-10 p-4">
+                            <History className="mx-auto mb-2 opacity-50" size={32} />
+                            <p className="text-sm">No versions saved yet.</p>
+                        </div>
+                    ) : (
+                        versions.map((v) => (
+                            <div key={v.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:border-amber-300 transition-all">
+                                <div className="flex justify-between items-start mb-1">
+                                    <span className="font-bold text-slate-800 text-xs">{v.description}</span>
+                                    <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 rounded">{new Date(v.timestamp).toLocaleTimeString()}</span>
+                                </div>
+                                <div className="flex items-center space-x-2 text-xs text-slate-500 mb-3">
+                                    <FileClock size={12} />
+                                    <span>{new Date(v.timestamp).toLocaleDateString()}</span>
+                                    <span>•</span>
+                                    <span>{v.wordCount} words</span>
+                                </div>
+                                <div className="flex space-x-2">
+                                    <button 
+                                        onClick={() => handleRestoreVersion(v)} 
+                                        className="flex-1 py-1.5 bg-amber-50 text-amber-700 rounded text-xs font-medium hover:bg-amber-100 flex items-center justify-center space-x-1"
+                                    >
+                                        <RotateCcw size={12} /> <span>Restore</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDeleteVersion(v.id)}
+                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-50 rounded"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+             </div>
+          )}
 
           {/* Tab Content: Review */}
           {activeTab === 'review' && (
@@ -737,8 +931,6 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
             </div>
           )}
 
-          {/* ... Other Tabs ... */}
-          
           {/* Tab Content: Research */}
           {activeTab === 'research' && (
             <div className="flex-1 flex flex-col bg-slate-50">
