@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -101,13 +102,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
   };
 
   return (
-    <div className="p-8 space-y-8 animate-fade-in">
-      <header className="mb-8 flex justify-between items-center">
+    <div className="p-4 md:p-8 space-y-8 animate-fade-in">
+      <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
            <h1 className="text-3xl font-bold text-slate-900 font-serif">Welcome back, Edwin</h1>
            <p className="text-slate-500 mt-2">You have {inProgressDocs} active thesis documents.</p>
         </div>
-        <button className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
+        <button className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors w-full md:w-auto justify-center">
             <Plus size={20} />
             <span>New Task</span>
         </button>
@@ -184,7 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
                             className="group p-3 rounded-lg border border-slate-100 hover:border-teal-200 hover:bg-teal-50 cursor-pointer transition-all flex items-start space-x-3"
                         >
                             <FileText className="text-slate-400 group-hover:text-teal-500 mt-1" size={20} />
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-slate-800 group-hover:text-teal-700 text-sm truncate">{doc.title}</h4>
                             <p className="text-xs text-slate-500 mt-1">{doc.progress}% Complete • {doc.lastModified.toLocaleDateString()}</p>
                             </div>

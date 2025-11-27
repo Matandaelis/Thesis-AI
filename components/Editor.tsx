@@ -5,7 +5,7 @@ import {
   Bold, Italic, List, AlignLeft, Sparkles, Search, MessageSquare, 
   BookOpen, ChevronRight, ExternalLink, Scissors, Maximize2, Minimize2, Pen,
   Eye, EyeOff, BarChart2, Book, FileText, Target, Mic, Volume2, Plus, PieChart, Trash2, Copy, BrainCircuit,
-  Clock, Pause, Play, Sigma
+  Clock, Pause, Play, Sigma, Menu, Layout
 } from 'lucide-react';
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart as RePieChart, Pie,
@@ -35,6 +35,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [activeTab, setActiveTab] = useState<'write' | 'review' | 'research' | 'chat' | 'thesaurus' | 'figures' | 'references'>('write');
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isStructureOpen, setIsStructureOpen] = useState(true); // Control left sidebar
   
   // Review Mode: 'suggestions' (Flash) or 'critique' (Pro Thinking)
   const [reviewMode, setReviewMode] = useState<'suggestions' | 'critique'>('suggestions');
@@ -102,6 +103,11 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
 
   // Effects
   useEffect(() => {
+    // Auto-close structure on mobile
+    if (window.innerWidth < 768) {
+      setIsStructureOpen(false);
+    }
+
     const timer = setTimeout(() => {
       onSave({ ...document, content, lastModified: new Date() });
     }, 5000);
@@ -436,13 +442,16 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
       
       {/* Structure Sidebar (Left) */}
       {!isFocusMode && (
-        <div className="w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm">
-          <div className="p-4 border-b border-slate-200 bg-slate-50">
-            <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wider flex items-center">
+        <div className={`${isStructureOpen ? 'w-64' : 'w-0'} bg-white border-r border-slate-200 flex flex-col shadow-sm transition-all duration-300 overflow-hidden`}>
+          <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wider flex items-center whitespace-nowrap">
               <List size={14} className="mr-2" /> Structure
             </h3>
+            <button onClick={() => setIsStructureOpen(false)} className="md:hidden p-1 text-slate-400">
+               <X size={16} />
+            </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto p-2 w-64">
             {outline.length === 0 ? (
               <p className="text-xs text-slate-400 p-4 italic">
                 Add headings (e.g. "Chapter 1", "1.0 Introduction") to see your document structure here.
@@ -462,7 +471,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
               </ul>
             )}
           </div>
-          <div className="p-4 border-t border-slate-200 bg-slate-50">
+          <div className="p-4 border-t border-slate-200 bg-slate-50 w-64">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
               <span>Progress</span>
               <span>{Math.round((wordCount / wordTarget) * 100)}%</span>
@@ -483,27 +492,35 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
         
         {/* Toolbar */}
         {!isFocusMode && (
-          <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
-            <div className="flex items-center space-x-4">
-              <button onClick={onBack} className="text-slate-500 hover:text-slate-800 text-sm font-medium">← Back</button>
+          <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shadow-sm z-10 overflow-x-auto no-scrollbar gap-4">
+            <div className="flex items-center space-x-4 shrink-0">
+              <button onClick={onBack} className="text-slate-500 hover:text-slate-800 text-sm font-medium whitespace-nowrap">← Back</button>
               <div className="h-6 w-px bg-slate-200"></div>
-              <h2 className="font-serif font-bold text-lg text-slate-800 truncate max-w-xs">{document.title}</h2>
+              {!isStructureOpen && (
+                 <button onClick={() => setIsStructureOpen(true)} className="p-2 text-slate-500 hover:bg-slate-100 rounded" title="Open Structure">
+                    <Layout size={20} />
+                 </button>
+              )}
+              <h2 className="font-serif font-bold text-lg text-slate-800 truncate max-w-[150px] md:max-w-xs">{document.title}</h2>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <div className="flex bg-slate-100 rounded-lg p-1 mr-2">
+            <div className="flex items-center space-x-2 shrink-0">
+              <div className="hidden md:flex bg-slate-100 rounded-lg p-1 mr-2">
                   <button onClick={() => handleRewrite('paraphrase')} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white hover:shadow-sm rounded-md transition-all">Paraphrase</button>
                   <button onClick={() => handleRewrite('expand')} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white hover:shadow-sm rounded-md transition-all">Expand</button>
                   <button onClick={() => setCitationModalOpen(true)} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white hover:shadow-sm rounded-md transition-all">Citation</button>
               </div>
 
+              {/* Mobile rewrite dropdown could go here, for now keeping icons */}
+              <button onClick={() => setCitationModalOpen(true)} className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg" title="Citation"><Quote size={20} /></button>
+
               <button onClick={handleReadAloud} className={`p-2 rounded-lg tooltip ${isSpeaking ? 'bg-indigo-100 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`} title="Read Aloud">
                   <Volume2 size={20} />
               </button>
-              <button onClick={handleDictation} className={`p-2 rounded-lg tooltip ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'text-slate-600 hover:bg-slate-100'}`} title="Dictation">
+              <button onClick={handleDictation} className={`hidden sm:block p-2 rounded-lg tooltip ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'text-slate-600 hover:bg-slate-100'}`} title="Dictation">
                   <Mic size={20} />
               </button>
-              <button onClick={insertLatex} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg tooltip" title="Insert Math"><Sigma size={20} /></button>
+              <button onClick={insertLatex} className="hidden sm:block p-2 text-slate-600 hover:bg-slate-100 rounded-lg tooltip" title="Insert Math"><Sigma size={20} /></button>
 
               <button onClick={handleAutocomplete} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg tooltip border border-indigo-200 ml-2" title="Continue Writing" disabled={isWriting}>
                 {isWriting ? <RefreshCw className="animate-spin" size={20} /> : <Pen size={20} />}
@@ -512,13 +529,13 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
               
               <div className="h-6 w-px bg-slate-200 mx-2"></div>
               
-              <button className="flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors shadow-sm" onClick={() => setActiveTab('research')}>
+              <button className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors shadow-sm whitespace-nowrap" onClick={() => setActiveTab('research')}>
                 <Search size={18} />
-                <span className="hidden sm:inline">Research</span>
+                <span className="hidden md:inline">Research</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm" onClick={handleAnalyze} disabled={isAnalyzing}>
+              <button className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm whitespace-nowrap" onClick={handleAnalyze} disabled={isAnalyzing}>
                 <Sparkles size={18} />
-                <span className="hidden sm:inline">Review</span>
+                <span className="hidden md:inline">Review</span>
               </button>
 
               <button onClick={() => setIsFocusMode(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg" title="Focus Mode"><Maximize2 size={20} /></button>
@@ -541,13 +558,13 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
 
         {/* Sub-toolbar (Formatting) - Hidden in Focus Mode */}
         {!isFocusMode && (
-          <div className="bg-slate-50 border-b border-slate-200 px-6 py-2 flex items-center justify-between overflow-x-auto">
-             <div className="flex items-center space-x-4">
-               <span className="text-xs text-slate-500 font-mono">{university?.name || 'Standard'}: {editorStyle.fontFamily}, {editorStyle.fontSize}</span>
+          <div className="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-2 flex items-center justify-between overflow-x-auto no-scrollbar gap-4">
+             <div className="flex items-center space-x-4 whitespace-nowrap shrink-0">
+               <span className="text-xs text-slate-500 font-mono hidden sm:inline">{university?.name || 'Standard'}: {editorStyle.fontFamily}, {editorStyle.fontSize}</span>
              </div>
              
              {/* Pomodoro Timer */}
-             <div className="flex items-center bg-white border border-slate-200 rounded-md px-2 py-1 space-x-2">
+             <div className="flex items-center bg-white border border-slate-200 rounded-md px-2 py-1 space-x-2 shrink-0">
                  <Clock size={14} className="text-slate-400" />
                  <span className={`text-xs font-mono font-bold ${pomodoroActive ? 'text-teal-600' : 'text-slate-600'}`}>{formatTime(pomodoroTime)}</span>
                  <button onClick={() => setPomodoroActive(!pomodoroActive)} className="text-slate-500 hover:text-teal-600">
@@ -555,7 +572,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                  </button>
              </div>
 
-             <div className="flex space-x-2">
+             <div className="flex space-x-2 shrink-0">
                 <button onClick={() => setActiveTab(activeTab === 'figures' ? 'write' : 'figures')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'figures' ? 'bg-orange-100 text-orange-700' : 'text-slate-600 hover:bg-slate-200'}`}>
                    <PieChart size={14} /> <span>Figures</span>
                 </button>
@@ -573,23 +590,23 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
         )}
 
         {/* Typing Area */}
-        <div className="flex-1 overflow-y-auto p-8 flex justify-center scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center scroll-smooth bg-slate-100">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onSelect={handleSelect}
             style={editorStyle}
-            className={`w-full max-w-[21cm] min-h-[29.7cm] bg-white shadow-lg p-[2.54cm] text-slate-900 resize-none focus:outline-none selection:bg-indigo-100 selection:text-indigo-900 transition-all duration-300 ${isFocusMode ? 'shadow-2xl scale-105' : ''}`}
+            className={`w-full max-w-[21cm] min-h-[50vh] md:min-h-[29.7cm] bg-white shadow-lg p-4 md:p-[2.54cm] text-slate-900 resize-none focus:outline-none selection:bg-indigo-100 selection:text-indigo-900 transition-all duration-300 ${isFocusMode ? 'shadow-2xl scale-100 md:scale-105' : ''}`}
             placeholder="Start typing your thesis chapter here..."
           />
         </div>
 
         {/* Status Bar */}
-        <div className="bg-white border-t border-slate-200 px-6 py-2 flex justify-between items-center text-xs text-slate-500">
+        <div className="bg-white border-t border-slate-200 px-4 md:px-6 py-2 flex justify-between items-center text-xs text-slate-500">
            <div className="flex items-center space-x-4">
               <span>Words: {wordCount}</span>
-              <span>Reading Time: {Math.ceil(wordCount / 200)} min</span>
+              <span className="hidden sm:inline">Reading Time: {Math.ceil(wordCount / 200)} min</span>
            </div>
            <div>
               {document.lastModified ? `Saved ${document.lastModified.toLocaleTimeString()}` : 'Unsaved'}
@@ -599,7 +616,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
 
       {/* AI Sidebar - Tabbed Interface (Right) - Hidden in Focus Mode */}
       {!isFocusMode && (
-        <div className={`w-96 bg-white border-l border-slate-200 shadow-xl transform transition-all duration-300 flex flex-col absolute right-0 top-0 bottom-0 z-20 ${activeTab !== 'write' ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`w-full md:w-96 bg-white border-l border-slate-200 shadow-xl transform transition-all duration-300 flex flex-col absolute right-0 top-0 bottom-0 z-20 ${activeTab !== 'write' ? 'translate-x-0' : 'translate-x-full'}`}>
           
           {/* Sidebar Header with Tabs */}
           <div className="flex items-center border-b border-slate-200 px-1 overflow-x-auto no-scrollbar">
@@ -705,7 +722,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                   <div className="relative">
                      <input 
                         className="w-full bg-slate-100 border-none rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-teal-500"
-                        placeholder="Search topic e.g., 'Impact of mobile money in Kenya'"
+                        placeholder="Search topic..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleResearch()}
@@ -750,7 +767,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                   {!researchResults && !isSearching && (
                      <div className="text-center text-slate-400 mt-10 p-4">
                         <Search className="mx-auto mb-2 opacity-50" size={32} />
-                        <p className="text-sm">Enter a topic to search academic sources and get a summary.</p>
+                        <p className="text-sm">Enter a topic to search academic sources.</p>
                      </div>
                   )}
                </div>
@@ -886,11 +903,11 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
 
       {/* Citation Modal */}
       {citationModalOpen && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-[500px]">
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-[500px]">
             <h3 className="text-xl font-bold mb-4 font-serif">Citation Generator</h3>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Author(s)</label>
                     <input 
@@ -936,12 +953,12 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                 </div>
               )}
 
-              <div className="flex justify-end space-x-3 pt-2">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
                 <button 
                   onClick={clearCitationForm}
                   className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg text-sm mr-auto"
                 >
-                  Clear Form
+                  Clear
                 </button>
                 <button 
                   onClick={resetCitationModal}
@@ -953,7 +970,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                   <button 
                     onClick={handleGenerateCitation}
                     disabled={isGeneratingCitation}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center space-x-2"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center justify-center space-x-2"
                   >
                     {isGeneratingCitation && <RefreshCw size={14} className="animate-spin" />}
                     <span>Generate</span>
@@ -962,7 +979,7 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                   <>
                      <button 
                         onClick={() => copyToClipboard(citationResult)}
-                        className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center space-x-2"
+                        className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 flex items-center justify-center space-x-2"
                      >
                         <Copy size={16} /> <span>Copy</span>
                      </button>

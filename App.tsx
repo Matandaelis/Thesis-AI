@@ -8,12 +8,13 @@ import { Marketplace } from './components/Marketplace';
 import { Settings } from './components/Settings';
 import { Toolkit } from './components/Toolkit';
 import { Document, University, View } from './types';
-import { Construction } from 'lucide-react';
+import { Construction, Menu, GraduationCap } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
   const [activeUniversity, setActiveUniversity] = useState<University | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Mock Data
   const [documents, setDocuments] = useState<Document[]>([
@@ -43,6 +44,7 @@ const App: React.FC = () => {
     const uniName = doc.universityId === 'uon' ? 'University of Nairobi' : 'Kenyatta University'; 
     setActiveUniversity({ id: doc.universityId, name: uniName } as University);
     setCurrentView(View.EDITOR);
+    setIsSidebarOpen(false);
   };
 
   const handleCreateDocument = (uni: University) => {
@@ -59,6 +61,7 @@ const App: React.FC = () => {
     setCurrentDoc(newDoc);
     setActiveUniversity(uni);
     setCurrentView(View.EDITOR);
+    setIsSidebarOpen(false);
   };
 
   const handleSaveDocument = (updatedDoc: Document) => {
@@ -85,67 +88,89 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      {/* Sidebar is always present unless in deep focus mode, but let's keep it consistent */}
+      {/* Sidebar is always present in DOM but hidden on mobile via CSS unless open */}
       {currentView !== View.EDITOR && (
-        <Sidebar currentView={currentView} onChangeView={setCurrentView} />
+        <Sidebar 
+          currentView={currentView} 
+          onChangeView={setCurrentView} 
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
       )}
 
-      <main className="flex-1 overflow-auto h-full relative">
-        {currentView === View.DASHBOARD && (
-          <Dashboard documents={documents} onOpenDocument={handleOpenDocument} />
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Mobile Header */}
+        {currentView !== View.EDITOR && (
+          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm z-30 shrink-0">
+             <div className="flex items-center gap-2">
+                <div className="bg-teal-500 p-1.5 rounded-lg text-white">
+                    <GraduationCap size={20} />
+                </div>
+                <span className="font-bold font-serif text-lg text-slate-800">ThesisAI</span>
+             </div>
+             <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-slate-900 p-1">
+                <Menu size={24} />
+             </button>
+          </header>
         )}
 
-        {currentView === View.TEMPLATES && (
-          <Templates onSelect={handleCreateDocument} />
-        )}
+        <main className="flex-1 overflow-auto relative">
+          {currentView === View.DASHBOARD && (
+            <Dashboard documents={documents} onOpenDocument={handleOpenDocument} />
+          )}
 
-        {currentView === View.EDITOR && currentDoc && (
-          <Editor 
-            document={currentDoc} 
-            university={activeUniversity} 
-            onSave={handleSaveDocument}
-            onBack={() => setCurrentView(View.DASHBOARD)}
-          />
-        )}
+          {currentView === View.TEMPLATES && (
+            <Templates onSelect={handleCreateDocument} />
+          )}
 
-        {currentView === View.MARKETPLACE && (
-          <Marketplace />
-        )}
-        
-        {currentView === View.SETTINGS && (
-           <Settings />
-        )}
+          {currentView === View.EDITOR && currentDoc && (
+            <Editor 
+              document={currentDoc} 
+              university={activeUniversity} 
+              onSave={handleSaveDocument}
+              onBack={() => setCurrentView(View.DASHBOARD)}
+            />
+          )}
 
-        {currentView === View.TOOLKIT && (
-           <Toolkit />
-        )}
+          {currentView === View.MARKETPLACE && (
+            <Marketplace />
+          )}
+          
+          {currentView === View.SETTINGS && (
+             <Settings />
+          )}
 
-        {/* New Views Placeholders */}
-        {currentView === View.RESEARCH && (
-           <PlaceholderView 
-             title="Research Library" 
-             desc="A centralized hub to manage your references, PDFs, and citations across all your thesis projects. Coming soon!" 
-           />
-        )}
-        {currentView === View.CALENDAR && (
-           <PlaceholderView 
-             title="Thesis Calendar" 
-             desc="Track your submission deadlines, supervisor meetings, and writing milestones in one place." 
-           />
-        )}
-        {currentView === View.ANALYTICS && (
-           <PlaceholderView 
-             title="Writing Analytics" 
-             desc="Deep insights into your writing habits, vocabulary usage, and productivity trends." 
-           />
-        )}
-        {currentView === View.COMMUNITY && (
-           <PlaceholderView 
-             title="Scholar Community" 
-             desc="Connect with other researchers, share drafts for peer review, and find study partners." 
-           />
-        )}
-      </main>
+          {currentView === View.TOOLKIT && (
+             <Toolkit />
+          )}
+
+          {/* New Views Placeholders */}
+          {currentView === View.RESEARCH && (
+             <PlaceholderView 
+               title="Research Library" 
+               desc="A centralized hub to manage your references, PDFs, and citations across all your thesis projects. Coming soon!" 
+             />
+          )}
+          {currentView === View.CALENDAR && (
+             <PlaceholderView 
+               title="Thesis Calendar" 
+               desc="Track your submission deadlines, supervisor meetings, and writing milestones in one place." 
+             />
+          )}
+          {currentView === View.ANALYTICS && (
+             <PlaceholderView 
+               title="Writing Analytics" 
+               desc="Deep insights into your writing habits, vocabulary usage, and productivity trends." 
+             />
+          )}
+          {currentView === View.COMMUNITY && (
+             <PlaceholderView 
+               title="Scholar Community" 
+               desc="Connect with other researchers, share drafts for peer review, and find study partners." 
+             />
+          )}
+        </main>
+      </div>
     </div>
   );
 };

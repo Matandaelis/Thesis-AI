@@ -110,9 +110,9 @@ export const Toolkit: React.FC = () => {
   // Note: Imported icons are limited in the import statement above. 
 
   return (
-    <div className="p-8 max-w-7xl mx-auto animate-fade-in pb-20">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in pb-20">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-serif font-bold text-slate-900 mb-4">Scholar's Toolkit</h1>
+        <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">Scholar's Toolkit</h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
           30+ specialized tools designed to accelerate every stage of your research journey, from ideation to publication.
         </p>

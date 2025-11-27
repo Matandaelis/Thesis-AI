@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { University } from '../types';
 import { School, ArrowRight, X, Check, Info } from 'lucide-react';
@@ -44,9 +45,9 @@ export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto relative">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto relative">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-serif font-bold text-slate-900 mb-4">Select your University</h1>
+        <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">Select your University</h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
           We automatically configure margins, fonts, citation styles, and document structure to match your institution's specific guidelines.
         </p>

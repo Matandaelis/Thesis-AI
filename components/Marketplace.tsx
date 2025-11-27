@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Star, Clock, Check, X } from 'lucide-react';
 
@@ -48,13 +49,13 @@ export const Marketplace: React.FC = () => {
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto animate-fade-in relative">
-      <header className="mb-8 flex justify-between items-end">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto animate-fade-in relative">
+      <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
            <h1 className="text-3xl font-bold font-serif text-slate-900">Expert Services</h1>
            <p className="text-slate-600 mt-2">Hire vetted professionals to polish your thesis.</p>
         </div>
-        <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+        <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm w-full md:w-auto text-center md:text-left">
             <span className="text-sm font-medium text-slate-600">Your Balance: </span>
             <span className="text-lg font-bold text-teal-700">KES 4,500</span>
         </div>
@@ -106,8 +107,8 @@ export const Marketplace: React.FC = () => {
       {/* Service Modal */}
       {selectedService && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-scale-in">
-                <div className="relative h-40 bg-slate-800">
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-scale-in flex flex-col max-h-[90vh]">
+                <div className="relative h-40 bg-slate-800 shrink-0">
                    <img src={`https://picsum.photos/400/200?random=${selectedService.id + 10}`} className="w-full h-full object-cover opacity-50" />
                    <button onClick={() => setSelectedService(null)} className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/70">
                         <X size={16} />
@@ -118,7 +119,7 @@ export const Marketplace: React.FC = () => {
                    </div>
                 </div>
                 
-                <div className="p-6">
+                <div className="p-6 overflow-y-auto">
                     <div className="flex items-center space-x-4 mb-6">
                         <div className="flex-1 bg-slate-50 p-3 rounded-lg border border-slate-100 text-center">
                             <p className="text-xs text-slate-500 uppercase">Rate</p>

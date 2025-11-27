@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, Bell, Lock, CreditCard, LogOut } from 'lucide-react';
 
@@ -5,7 +6,7 @@ export const Settings: React.FC = () => {
     const [activeTab, setActiveTab] = useState('profile');
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold font-serif text-slate-900 mb-8">Settings</h1>
 
             <div className="flex flex-col md:flex-row gap-8">
@@ -38,13 +39,13 @@ export const Settings: React.FC = () => {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+                <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
                     {activeTab === 'profile' && (
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold text-slate-800 mb-4">Profile Information</h2>
                             
                             <div className="flex items-center space-x-6">
-                                <div className="w-24 h-24 rounded-full bg-slate-200 overflow-hidden">
+                                <div className="w-24 h-24 rounded-full bg-slate-200 overflow-hidden shrink-0">
                                     <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="w-full h-full object-cover" />
                                 </div>
                                 <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50">Change Photo</button>
@@ -86,7 +87,7 @@ export const Settings: React.FC = () => {
                     {activeTab === 'billing' && (
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold text-slate-800">Subscription Plan</h2>
-                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex justify-between items-center">
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
                                     <p className="font-bold text-slate-900">Student Premium</p>
                                     <p className="text-sm text-slate-500">Billed monthly • Next billing date: Nov 12, 2023</p>
@@ -110,8 +111,8 @@ export const Settings: React.FC = () => {
                             <h2 className="text-xl font-bold text-slate-800 mb-4">Notification Preferences</h2>
                             {['Email me about deadline reminders', 'Email me about marketplace offers', 'Notify me when AI analysis is complete'].map((item, idx) => (
                                 <div key={idx} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                                    <span className="text-slate-700">{item}</span>
-                                    <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <span className="text-slate-700 text-sm md:text-base">{item}</span>
+                                    <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in shrink-0">
                                         <input type="checkbox" name={`toggle-${idx}`} id={`toggle-${idx}`} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-6 checked:border-teal-400" defaultChecked />
                                         <label htmlFor={`toggle-${idx}`} className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer checked:bg-teal-400"></label>
                                     </div>
