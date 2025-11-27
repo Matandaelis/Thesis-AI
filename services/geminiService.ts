@@ -68,6 +68,9 @@ export const GeminiService = {
           Identify gaps in logic, weak evidence, theoretical inconsistencies, or lack of critical analysis.
           Provide your feedback in a structured, essay-like format.
           
+          Use **Double Asterisks** for headers/section titles to structure your critique.
+          Use - for list items.
+          
           Text: "${text.substring(0, 30000)}"
         `,
         config: {

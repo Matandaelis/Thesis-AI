@@ -300,7 +300,13 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   };
 
   const insertCitation = () => {
-    setContent(prev => prev + ` (${citationResult})`);
+    const textToInsert = ` ${citationResult}`;
+    if (selectionRange) {
+        const newContent = content.substring(0, selectionRange.end) + textToInsert + content.substring(selectionRange.end);
+        setContent(newContent);
+    } else {
+        setContent(prev => prev + textToInsert);
+    }
     resetCitationModal();
   };
 
@@ -388,6 +394,21 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
   const copyToClipboard = (text: string) => {
       navigator.clipboard.writeText(text);
       alert("Copied!");
+  };
+
+  // Render formatted critique
+  const renderCritique = (text: string) => {
+    return text.split('\n').map((line, i) => {
+      const trimLine = line.trim();
+      if (!trimLine) return <br key={i} />;
+      if (trimLine.startsWith('**') || trimLine.startsWith('##')) {
+        return <h4 key={i} className="font-bold text-teal-800 mt-3 mb-1">{trimLine.replace(/^[\*#]+/, '').replace(/[\*#]+$/, '')}</h4>;
+      }
+      if (trimLine.startsWith('- ')) {
+        return <li key={i} className="ml-4 list-disc text-slate-700 text-sm mb-1">{trimLine.substring(2)}</li>
+      }
+      return <p key={i} className="text-slate-700 text-sm mb-2 leading-relaxed">{line}</p>;
+    });
   };
 
   // Render Charts Helper
@@ -704,7 +725,9 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
                        <div className="bg-white p-4 rounded-lg border border-teal-100 shadow-sm overflow-y-auto">
                          <div className="prose prose-sm prose-teal">
                             <h4 className="text-teal-800 font-bold mb-2 flex items-center gap-2"><Bot size={16}/> Supervisor's Critique</h4>
-                            <div className="whitespace-pre-wrap text-slate-700 text-sm">{critiqueText}</div>
+                            <div className="text-slate-700 text-sm">
+                               {renderCritique(critiqueText)}
+                            </div>
                          </div>
                          <button onClick={handleDeepCritique} className="mt-4 text-xs text-teal-600 underline text-center w-full">Regenerate</button>
                        </div>
@@ -714,6 +737,8 @@ export const Editor: React.FC<EditorProps> = ({ document, university, onSave, on
             </div>
           )}
 
+          {/* ... Other Tabs ... */}
+          
           {/* Tab Content: Research */}
           {activeTab === 'research' && (
             <div className="flex-1 flex flex-col bg-slate-50">
