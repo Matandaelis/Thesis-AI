@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   PenTool, BookOpen, Briefcase, Database, Type, FileText, 
   Globe, Clock, Table, CheckSquare, Sparkles, Presentation,
-  RefreshCw, X, Copy, Terminal, Link
+  RefreshCw, X, Copy, Terminal, Link, Microscope
 } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
 
@@ -57,8 +57,17 @@ export const Toolkit: React.FC = () => {
     setIsLoading(false);
   };
 
+  const handleScientificCheck = async () => {
+    if (!input) return;
+    setIsLoading(true);
+    const res = await GeminiService.checkScientificPaper(input);
+    setOutput(res);
+    setIsLoading(false);
+  };
+
   const tools: Tool[] = [
     // --- Writing Tools ---
+    { id: 't31', name: 'Scientific Paper Checker', description: 'Audit structure, acronyms, and formatting.', icon: Microscope, category: 'Writing', status: 'Active', action: () => { setActiveTool('t31'); setOutput(''); } },
     { id: 't1', name: 'Abstract Generator', description: 'Create a concise summary of your work.', icon: FileText, category: 'Writing', status: 'Coming Soon' },
     { id: 't2', name: 'Title Perfector', description: 'Generate catchy & academic titles.', icon: Type, category: 'Writing', status: 'Coming Soon' },
     { id: 't3', name: 'Passive Voice Fixer', description: 'Convert passive sentences to active.', icon: PenTool, category: 'Writing', status: 'Coming Soon' },
@@ -156,6 +165,7 @@ export const Toolkit: React.FC = () => {
                       {activeTool === 't11' ? 'Enter your research topic:' : 
                        activeTool === 't19' ? 'Paste your thesis abstract:' :
                        activeTool === 't20' ? 'Paste your chapter content:' :
+                       activeTool === 't31' ? 'Paste full paper text for auditing:' :
                        'Enter abstract keywords:'}
                     </label>
                     <textarea 
@@ -169,6 +179,7 @@ export const Toolkit: React.FC = () => {
                         activeTool === 't11' ? handleLitMatrix :
                         activeTool === 't19' ? handleGrantProposal :
                         activeTool === 't20' ? handleSlides :
+                        activeTool === 't31' ? handleScientificCheck :
                         handleJournalMatch
                       }
                       disabled={isLoading || !input}

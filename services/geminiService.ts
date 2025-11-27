@@ -433,5 +433,31 @@ export const GeminiService = {
       });
       return response.text || "Failed to generate matrix.";
     } catch (e) { return "Error"; }
+  },
+
+  // Scientific Paper Checker (Inspired by automated checkers)
+  async checkScientificPaper(content: string): Promise<string> {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview', 
+        contents: `
+          Perform a rigorous scientific audit on the text below, acting as an automated compliance tool.
+          
+          Check for the following specific issues:
+          1. **Structure (IMRaD)**: Check for presence of Intro, Methods, Results, Discussion headers.
+          2. **Acronyms**: Are acronyms defined on first use? (e.g. "Artificial Intelligence (AI)").
+          3. **Figure/Table Referencing**: Are "Figure 1" or "Table 1" referenced correctly in text? Consistent naming (Fig vs Figure)?
+          4. **Subjective Language**: Flag words like "huge", "amazing", "unfortunately", "I feel".
+          5. **Spacing & Units**: Check for space between number and unit (e.g. "5 kg" vs "5kg").
+          6. **Consistency**: Does the Abstract conclusion match the final Conclusion?
+
+          Provide a report in Markdown with a "Compliance Score" out of 100 at the top, followed by a checklist of the above 6 items (Pass/Fail/Warn) and specific examples of errors found.
+          
+          Content: "${content.substring(0, 30000)}"
+        `,
+        config: { thinkingConfig: { thinkingBudget: 4096 } }
+      });
+      return response.text || "Failed to check paper.";
+    } catch (e) { return "Error checking paper."; }
   }
 };
