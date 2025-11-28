@@ -132,7 +132,7 @@ export const Calendar: React.FC = () => {
 
     // Empty cells for days before the 1st
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24 md:h-32 bg-slate-50/50 border-b border-r border-slate-100"></div>);
+      days.push(<div key={`empty-${i}`} className="h-16 md:h-32 bg-slate-50/50 border-b border-r border-slate-100"></div>);
     }
 
     // Days of the month
@@ -149,18 +149,15 @@ export const Calendar: React.FC = () => {
         <div 
           key={day} 
           onClick={() => handleDateClick(day)}
-          className={`h-24 md:h-32 border-b border-r border-slate-100 p-2 cursor-pointer transition-colors hover:bg-slate-50 relative group ${isSelected ? 'bg-teal-50/50' : ''}`}
+          className={`h-16 md:h-32 border-b border-r border-slate-100 p-1 md:p-2 cursor-pointer transition-colors hover:bg-slate-50 relative group ${isSelected ? 'bg-teal-50/50' : ''}`}
         >
           <div className="flex justify-between items-start">
-             <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : 'text-slate-700'}`}>
+             <span className={`text-xs md:text-sm font-medium w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : 'text-slate-700'}`}>
                {day}
              </span>
-             {dayEvents.length > 0 && (
-               <span className="md:hidden w-2 h-2 rounded-full bg-teal-500"></span>
-             )}
           </div>
           
-          <div className="mt-2 space-y-1 hidden md:block overflow-y-auto max-h-[80px] custom-scrollbar">
+          <div className="mt-1 md:mt-2 space-y-1 hidden md:block overflow-y-auto max-h-[80px] custom-scrollbar">
             {dayEvents.map(event => (
               <div 
                 key={event.id} 
@@ -177,8 +174,8 @@ export const Calendar: React.FC = () => {
           </div>
           
           {/* Mobile dots */}
-          <div className="md:hidden flex gap-1 mt-1 justify-center">
-            {dayEvents.slice(0, 3).map(event => (
+          <div className="md:hidden flex gap-1 mt-1 justify-center flex-wrap">
+            {dayEvents.slice(0, 4).map(event => (
               <div 
                  key={event.id}
                  className={`w-1.5 h-1.5 rounded-full ${
@@ -192,9 +189,9 @@ export const Calendar: React.FC = () => {
 
           <button 
              onClick={(e) => { e.stopPropagation(); setSelectedDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day)); setShowAddModal(true); }}
-             className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-slate-200 rounded-full hover:bg-teal-600 hover:text-white transition-all"
+             className="absolute bottom-1 right-1 md:bottom-2 md:right-2 opacity-0 group-hover:opacity-100 p-1 bg-slate-200 rounded-full hover:bg-teal-600 hover:text-white transition-all"
           >
-             <Plus size={14} />
+             <Plus size={12} className="md:w-3.5 md:h-3.5" />
           </button>
         </div>
       );
@@ -206,29 +203,30 @@ export const Calendar: React.FC = () => {
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   return (
-    <div className="flex h-full animate-fade-in bg-slate-50 overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full animate-fade-in bg-slate-50 overflow-hidden">
       
       {/* Main Calendar Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden order-2 md:order-1">
          {/* Toolbar */}
-         <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
-            <div className="flex items-center space-x-4">
-               <h2 className="text-xl font-bold font-serif text-slate-900 flex items-center gap-2">
-                 <CalendarIcon className="text-teal-600" size={24} />
-                 {months[currentDate.getMonth()]} {currentDate.getFullYear()}
+         <div className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0">
+            <div className="flex items-center space-x-2 md:space-x-4">
+               <h2 className="text-lg md:text-xl font-bold font-serif text-slate-900 flex items-center gap-2">
+                 <CalendarIcon className="text-teal-600 hidden md:block" size={24} />
+                 <span className="md:hidden">{months[currentDate.getMonth()].substring(0,3)} {currentDate.getFullYear()}</span>
+                 <span className="hidden md:inline">{months[currentDate.getMonth()]} {currentDate.getFullYear()}</span>
                </h2>
-               <div className="flex items-center bg-slate-100 rounded-lg p-1">
-                  <button onClick={prevMonth} className="p-1 hover:bg-white rounded shadow-sm transition-all"><ChevronLeft size={18} className="text-slate-600" /></button>
-                  <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1 text-xs font-bold text-slate-600 hover:text-teal-600">Today</button>
-                  <button onClick={nextMonth} className="p-1 hover:bg-white rounded shadow-sm transition-all"><ChevronRight size={18} className="text-slate-600" /></button>
+               <div className="flex items-center bg-slate-100 rounded-lg p-0.5 md:p-1">
+                  <button onClick={prevMonth} className="p-1 hover:bg-white rounded shadow-sm transition-all"><ChevronLeft size={16} className="text-slate-600" /></button>
+                  <button onClick={() => setCurrentDate(new Date())} className="px-2 py-0.5 text-xs font-bold text-slate-600 hover:text-teal-600">Today</button>
+                  <button onClick={nextMonth} className="p-1 hover:bg-white rounded shadow-sm transition-all"><ChevronRight size={16} className="text-slate-600" /></button>
                </div>
             </div>
             
             <button 
               onClick={() => setShowAddModal(true)}
-              className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-teal-700 flex items-center gap-2 shadow-sm"
+              className="bg-teal-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold hover:bg-teal-700 flex items-center gap-2 shadow-sm"
             >
-              <Plus size={18} /> Add Event
+              <Plus size={16} /> <span className="hidden sm:inline">Add Event</span>
             </button>
          </div>
 
@@ -236,7 +234,7 @@ export const Calendar: React.FC = () => {
          <div className="flex-1 overflow-y-auto bg-white">
             <div className="grid grid-cols-7 border-b border-slate-200">
                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="py-2 text-center text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50 border-r border-slate-100 last:border-r-0">
+                  <div key={day} className="py-2 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50 border-r border-slate-100 last:border-r-0">
                      {day}
                   </div>
                ))}
@@ -248,9 +246,9 @@ export const Calendar: React.FC = () => {
       </div>
 
       {/* Right Sidebar Details */}
-      <div className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 overflow-hidden">
+      <div className="w-full md:w-80 h-1/3 md:h-full bg-white border-t md:border-t-0 md:border-l border-slate-200 flex flex-col shrink-0 overflow-hidden order-1 md:order-2">
           {/* Selected Date Header */}
-          <div className="p-6 border-b border-slate-100 bg-slate-50">
+          <div className="p-4 md:p-6 border-b border-slate-100 bg-slate-50 shrink-0">
              <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     {selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}
@@ -259,13 +257,13 @@ export const Calendar: React.FC = () => {
                     <span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold">TODAY</span>
                 )}
              </div>
-             <h3 className="text-3xl font-serif font-bold text-slate-900">
+             <h3 className="text-2xl md:text-3xl font-serif font-bold text-slate-900">
                 {selectedDate.getDate()} {months[selectedDate.getMonth()].substring(0,3)}
              </h3>
           </div>
 
           {/* Events for Selected Day */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 md:space-y-4">
              <div className="flex items-center justify-between">
                 <h4 className="font-bold text-slate-700 text-sm">Schedule</h4>
                 <button 
@@ -277,18 +275,17 @@ export const Calendar: React.FC = () => {
              </div>
              
              {getEventsForDay(selectedDate.getDate()).length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
-                   <Clock size={32} className="mx-auto mb-2 opacity-50" />
-                   <p className="text-sm">No events scheduled.</p>
-                   <p className="text-xs">Enjoy your free time!</p>
+                <div className="text-center py-4 md:py-8 text-slate-400">
+                   <Clock size={24} className="mx-auto mb-2 opacity-50" />
+                   <p className="text-xs md:text-sm">No events scheduled.</p>
                 </div>
              ) : (
                 getEventsForDay(selectedDate.getDate()).map(event => (
-                   <div key={event.id} className="group flex gap-3 items-start p-3 rounded-lg border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all relative">
+                   <div key={event.id} className="group flex gap-3 items-start p-2.5 md:p-3 rounded-lg border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all relative">
                       <div className="mt-1">
-                         {event.type === 'meeting' && <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Video size={14} /></div>}
-                         {event.type === 'deadline' && <div className="p-1.5 bg-red-100 text-red-600 rounded-lg"><AlertCircle size={14} /></div>}
-                         {event.type === 'milestone' && <div className="p-1.5 bg-green-100 text-green-600 rounded-lg"><Flag size={14} /></div>}
+                         {event.type === 'meeting' && <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Video size={12} /></div>}
+                         {event.type === 'deadline' && <div className="p-1.5 bg-red-100 text-red-600 rounded-lg"><AlertCircle size={12} /></div>}
+                         {event.type === 'milestone' && <div className="p-1.5 bg-green-100 text-green-600 rounded-lg"><Flag size={12} /></div>}
                       </div>
                       <div className="flex-1 min-w-0">
                          <h5 className={`text-sm font-bold text-slate-800 truncate ${event.completed ? 'line-through text-slate-400' : ''}`}>{event.title}</h5>
@@ -296,10 +293,10 @@ export const Calendar: React.FC = () => {
                             {event.time && <span className="flex items-center gap-1"><Clock size={10} /> {event.time}</span>}
                             {event.location && <span className="flex items-center gap-1"><MapPin size={10} /> {event.location}</span>}
                          </div>
-                         {event.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{event.description}</p>}
+                         {event.description && <p className="text-xs text-slate-500 mt-1 line-clamp-1 md:line-clamp-2">{event.description}</p>}
                       </div>
                       
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 flex flex-col gap-1 bg-white p-1 rounded shadow-sm border border-slate-100">
+                      <div className="flex flex-col gap-1 bg-white p-1 rounded shadow-sm border border-slate-100 md:opacity-0 md:group-hover:opacity-100 md:absolute md:top-2 md:right-2 transition-opacity">
                          <button onClick={() => toggleComplete(event.id)} className="p-1 text-slate-400 hover:text-green-600">
                             <CheckCircle2 size={14} />
                          </button>
@@ -311,18 +308,18 @@ export const Calendar: React.FC = () => {
                 ))
              )}
              
-             {/* Upcoming Section */}
-             <div className="pt-6 border-t border-slate-100">
-                <h4 className="font-bold text-slate-700 text-sm mb-3">Upcoming Milestones</h4>
-                <div className="space-y-3">
+             {/* Upcoming Section (Hidden on mobile to save space if needed, or keep) */}
+             <div className="pt-4 md:pt-6 border-t border-slate-100">
+                <h4 className="font-bold text-slate-700 text-sm mb-3">Upcoming</h4>
+                <div className="space-y-2 md:space-y-3">
                    {getUpcomingEvents().map(event => (
                       <div key={event.id} className="flex gap-3 items-center">
                          <div className={`w-1 h-8 rounded-full ${
                              event.type === 'deadline' ? 'bg-red-400' :
                              event.type === 'meeting' ? 'bg-blue-400' : 'bg-green-400'
                          }`}></div>
-                         <div className="flex-1">
-                            <p className="text-xs font-bold text-slate-700">{event.title}</p>
+                         <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-700 truncate">{event.title}</p>
                             <p className="text-[10px] text-slate-400">{event.date.toLocaleDateString()} • {event.time}</p>
                          </div>
                       </div>

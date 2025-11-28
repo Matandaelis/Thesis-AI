@@ -1,11 +1,16 @@
 
 import React, { useState } from 'react';
 import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer, Cell
+} from 'recharts';
+import { 
   PenTool, BookOpen, Briefcase, Database, Type, FileText, 
   Globe, Clock, Table, CheckSquare, Sparkles, Presentation,
-  RefreshCw, X, Copy, Terminal, Link, Microscope, Users, Eye, Calculator, Tag, Cloud
+  RefreshCw, X, Copy, Terminal, Link, Microscope, Users, Eye, Calculator, Tag, Cloud,
+  GitGraph, ArrowUpRight, Calendar
 } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
+import { OpenCitationsService } from '../services/openCitationsService';
 
 interface Tool {
   id: string;
@@ -22,6 +27,14 @@ export const Toolkit: React.FC = () => {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Rich Citation Data State
+  const [citationData, setCitationData] = useState<{
+      metadata: any;
+      counts: { incoming: number, outgoing: number };
+      recentCitations: any[];
+      chartData: any[];
+  } | null>(null);
 
   // --- Handlers for Active Tools ---
   
@@ -73,10 +86,60 @@ export const Toolkit: React.FC = () => {
     setIsLoading(false);
   };
 
+  const handleCitationGraph = async () => {
+     if (!input) return;
+     setIsLoading(true);
+     setCitationData(null);
+     
+     try {
+         // Parallel fetch for speed
+         const [metadata, incoming, outgoing, recentList] = await Promise.all([
+             OpenCitationsService.getMetadata(input),
+             OpenCitationsService.getCitationCount(input),
+             OpenCitationsService.getReferenceCount(input),
+             OpenCitationsService.getIncomingCitations(input, 100) // fetch up to 100 for graph
+         ]);
+
+         if (!metadata && incoming === 0 && outgoing === 0) {
+             setOutput("Error: Could not find paper data with this DOI. Ensure it is correct (e.g. 10.1186/...)");
+             setIsLoading(false);
+             return;
+         }
+
+         // Process Chart Data (Citations per year)
+         const yearMap: Record<string, number> = {};
+         recentList.forEach((item: any) => {
+             if (item.creation) {
+                 const year = item.creation.split('-')[0];
+                 yearMap[year] = (yearMap[year] || 0) + 1;
+             }
+         });
+
+         const chartData = Object.keys(yearMap).sort().map(year => ({
+             year,
+             citations: yearMap[year]
+         }));
+
+         setCitationData({
+             metadata: metadata || { title: 'Unknown Title', venue: 'Unknown Venue', pub_date: 'n.d.' },
+             counts: { incoming, outgoing },
+             recentCitations: recentList.slice(0, 5),
+             chartData
+         });
+         
+         setOutput("Data loaded."); // Fallback/Flag
+     } catch (e) {
+         setOutput("Error fetching citation graph data.");
+         console.error(e);
+     }
+     setIsLoading(false);
+  };
+
   const openTool = (id: string) => {
       setActiveTool(id);
       setOutput('');
       setInput('');
+      setCitationData(null);
   };
 
   const tools: Tool[] = [
@@ -94,6 +157,7 @@ export const Toolkit: React.FC = () => {
     { id: 't10', name: 'Thesis Statement Generator', description: 'Craft a strong central argument.', icon: PenTool, category: 'Writing', status: 'Active', action: () => openTool('t10') },
 
     // --- Research Tools ---
+    { id: 't18', name: 'Citation Metrics', description: 'Get citation counts and graphs via DOI.', icon: GitGraph, category: 'Research', status: 'Active', action: () => openTool('t18') },
     { id: 't11', name: 'Literature Matrix', description: 'Generate a comparison table for sources.', icon: Table, category: 'Research', status: 'Active', action: () => openTool('t11') },
     { id: 't12', name: 'Methodology Builder', description: 'Step-by-step research design.', icon: Database, category: 'Research', status: 'Active', action: () => openTool('t12') },
     { id: 't13', name: 'Reference Formatter', description: 'Format raw refs to APA 7th.', icon: BookOpen, category: 'Research', status: 'Active', action: () => openTool('t13') },
@@ -115,7 +179,6 @@ export const Toolkit: React.FC = () => {
     { id: 't29', name: 'Qualitative Codebook', description: 'Start your thematic analysis.', icon: Tag, category: 'Data', status: 'Active', action: () => openTool('t29') },
     
     // --- Placeholders/Coming Soon (Complex UI) ---
-    { id: 't18', name: 'Citation Graph', description: 'Visualize paper connections.', icon: Globe, category: 'Research', status: 'Coming Soon' },
     { id: 't24', name: 'Peer Review Swap', description: 'Connect with reviewers.', icon: Users, category: 'Career', status: 'Coming Soon' },
     { id: 't25', name: 'Pomodoro Timer', description: 'Focus timer for writing sprints.', icon: Clock, category: 'Data', status: 'Coming Soon' },
     { id: 't28', name: 'Sample Size Calculator', description: 'Determine N for your study.', icon: Calculator, category: 'Data', status: 'Coming Soon' },
@@ -124,16 +187,16 @@ export const Toolkit: React.FC = () => {
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in pb-20">
-      <div className="text-center mb-12">
-        <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">Scholar's Toolkit</h1>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+      <div className="text-center mb-8 md:mb-12">
+        <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-2 md:mb-4">Scholar's Toolkit</h1>
+        <p className="text-sm md:text-lg text-slate-600 max-w-2xl mx-auto">
           30+ specialized tools designed to accelerate every stage of your research journey, from ideation to publication.
         </p>
       </div>
 
       {['Writing', 'Research', 'Career', 'Data'].map((cat) => (
-        <div key={cat} className="mb-10">
-           <h3 className="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">{cat} Tools</h3>
+        <div key={cat} className="mb-8 md:mb-10">
+           <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">{cat} Tools</h3>
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
              {tools.filter(t => t.category === cat).map(tool => (
                <div 
@@ -161,24 +224,25 @@ export const Toolkit: React.FC = () => {
 
       {/* Active Tool Modal */}
       {activeTool && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] animate-scale-in">
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-xl">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                  <Sparkles className="text-teal-500" size={20} />
                  {tools.find(t => t.id === activeTool)?.name}
               </h2>
-              <button onClick={() => { setActiveTool(null); setOutput(''); setInput(''); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+              <button onClick={() => { setActiveTool(null); setOutput(''); setInput(''); setCitationData(null); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
             </div>
             
-            <div className="p-6 flex-1 overflow-y-auto">
-               {!output ? (
+            <div className="p-4 md:p-6 flex-1 overflow-y-auto">
+               {!output && !citationData ? (
                  <div className="space-y-4">
                     <label className="block text-sm font-medium text-slate-700">
                       {activeTool === 't11' ? 'Enter your research topic:' : 
                        activeTool === 't19' ? 'Paste your thesis abstract:' :
                        activeTool === 't20' ? 'Paste your chapter content:' :
                        activeTool === 't31' ? 'Paste full paper text for auditing:' :
+                       activeTool === 't18' ? 'Enter Paper DOI (e.g. 10.1186/1756-8722-6-59):' :
                        activeTool === 't22' ? 'Enter topic (e.g., "AI in Healthcare"):' :
                        activeTool === 't26' ? 'Describe dataset (e.g. "Patient recovery times"):' :
                        activeTool === 't13' ? 'Paste raw references:' :
@@ -194,6 +258,7 @@ export const Toolkit: React.FC = () => {
                       onClick={() => {
                         // Routing to specific complex handlers or the generic one
                         if (activeTool === 't11') handleLitMatrix();
+                        else if (activeTool === 't18') handleCitationGraph();
                         else if (activeTool === 't19') handleGrantProposal();
                         else if (activeTool === 't20') handleSlides();
                         else if (activeTool === 't31') handleScientificCheck();
@@ -207,21 +272,90 @@ export const Toolkit: React.FC = () => {
                       <span>Generate</span>
                     </button>
                  </div>
+               ) : activeTool === 't18' && citationData ? (
+                 <div className="space-y-6 animate-fade-in">
+                    {/* Header */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <h3 className="font-bold text-lg text-slate-800 leading-tight mb-2">{citationData.metadata.title || "Unknown Title"}</h3>
+                        <p className="text-sm text-slate-600 flex items-center gap-2">
+                           <BookOpen size={14} className="text-teal-600"/>
+                           {citationData.metadata.venue || "Unknown Source"}
+                           <span className="text-slate-400">•</span>
+                           <Calendar size={14} className="text-teal-600"/>
+                           {citationData.metadata.pub_date || "n.d."}
+                        </p>
+                    </div>
+
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex justify-between items-start mb-2">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Citations</span>
+                                <ArrowUpRight size={16} className="text-teal-500"/>
+                            </div>
+                            <span className="text-3xl font-bold text-slate-900">{citationData.counts.incoming}</span>
+                            <p className="text-xs text-slate-400 mt-1">Incoming</p>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex justify-between items-start mb-2">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">References</span>
+                                <BookOpen size={16} className="text-indigo-500"/>
+                            </div>
+                            <span className="text-3xl font-bold text-slate-900">{citationData.counts.outgoing}</span>
+                            <p className="text-xs text-slate-400 mt-1">Outgoing</p>
+                        </div>
+                    </div>
+
+                    {/* Chart */}
+                    {citationData.chartData.length > 0 && (
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 className="font-bold text-slate-800 text-sm mb-4">Citations Over Time</h4>
+                            <div className="h-48 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={citationData.chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="year" tick={{fontSize: 10}} />
+                                        <YAxis tick={{fontSize: 10}} />
+                                        <ReTooltip />
+                                        <Bar dataKey="citations" fill="#0d9488" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Recent Citations List */}
+                    {citationData.recentCitations.length > 0 && (
+                        <div>
+                            <h4 className="font-bold text-slate-800 text-sm mb-3">Recent Citing Works</h4>
+                            <div className="space-y-2">
+                                {citationData.recentCitations.map((item: any, i: number) => (
+                                    <div key={i} className="text-xs p-3 bg-white border border-slate-100 rounded-lg flex justify-between items-center">
+                                        <span className="font-mono text-slate-600 truncate flex-1">{item.citing.split(' ')[0]}</span>
+                                        <span className="text-slate-400 ml-2 whitespace-nowrap">{item.creation}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                 </div>
                ) : (
                  <div className="prose prose-sm max-w-none">
-                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 whitespace-pre-wrap font-mono text-xs md:text-sm text-slate-700">
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 whitespace-pre-wrap font-mono text-xs md:text-sm text-slate-700 overflow-x-auto">
                       {output}
                     </div>
                  </div>
                )}
             </div>
             
-            {output && (
+            {(output || citationData) && (
               <div className="p-4 border-t border-slate-200 bg-slate-50 rounded-b-xl flex justify-end gap-2">
-                <button onClick={() => { setOutput(''); }} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm">Start Over</button>
-                <button onClick={() => { navigator.clipboard.writeText(output); alert('Copied!'); }} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm flex items-center gap-2">
-                   <Copy size={16} /> Copy Result
-                </button>
+                <button onClick={() => { setOutput(''); setCitationData(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm">Start Over</button>
+                {output && (
+                    <button onClick={() => { navigator.clipboard.writeText(output); alert('Copied!'); }} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm flex items-center gap-2">
+                        <Copy size={16} /> Copy Result
+                    </button>
+                )}
               </div>
             )}
           </div>

@@ -1,43 +1,277 @@
 
 import React, { useState } from 'react';
 import { University } from '../types';
-import { School, ArrowRight, X, Check, Info, Settings, Type, AlignJustify, Book } from 'lucide-react';
+import { School, ArrowRight, X, Check, Info, Settings, Type, AlignJustify, Book, Search } from 'lucide-react';
 
 interface TemplatesProps {
   onSelect: (u: University) => void;
 }
 
-// Pre-defined universities
-const universities: University[] = [
+// Comprehensive list of Kenyan Universities and their typical standards
+export const KENYAN_UNIVERSITIES: University[] = [
+  // 1. Moi University (MU)
   {
-    id: 'uon',
-    name: 'University of Nairobi',
+    id: 'moi',
+    name: 'Moi University',
     logo: 'https://picsum.photos/100/100?random=1',
     standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
   },
+  // 2. Laikipia University (LU)
+  {
+    id: 'laikipia',
+    name: 'Laikipia University',
+    logo: 'https://picsum.photos/100/100?random=2',
+    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'APA 7th' }
+  },
+  // 3. Jomo Kenyatta University of Agriculture and Technology (JKUAT)
+  {
+    id: 'jkuat',
+    name: 'Jomo Kenyatta Univ. (JKUAT)',
+    logo: 'https://picsum.photos/100/100?random=3',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA/Harvard' }
+  },
+  // 4. Technical University of Kenya (TUK)
+  {
+    id: 'tuk',
+    name: 'Technical University of Kenya',
+    logo: 'https://picsum.photos/100/100?random=4',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  // 5. Egerton University
+  {
+    id: 'egerton',
+    name: 'Egerton University',
+    logo: 'https://picsum.photos/100/100?random=5',
+    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'APA 7th' }
+  },
+  // 6. University of Eldoret (UoE)
+  {
+    id: 'eldoret',
+    name: 'University of Eldoret',
+    logo: 'https://picsum.photos/100/100?random=6',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  // 7. Mount Kenya University (MKU)
+  {
+    id: 'mku',
+    name: 'Mount Kenya University',
+    logo: 'https://picsum.photos/100/100?random=7',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  // 8. Kenyatta University (KU)
   {
     id: 'ku',
     name: 'Kenyatta University',
-    logo: 'https://picsum.photos/100/100?random=2',
-    standards: { font: 'Arial', size: '11', spacing: '1.5', citationStyle: 'APA 7th' }
+    logo: 'https://picsum.photos/100/100?random=8',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
   },
+  // 9. Chuka University
+  {
+    id: 'chuka',
+    name: 'Chuka University',
+    logo: 'https://picsum.photos/100/100?random=9',
+    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'APA 7th' }
+  },
+  // 10. University of Nairobi (UoN)
+  {
+    id: 'uon',
+    name: 'University of Nairobi',
+    logo: 'https://picsum.photos/100/100?random=10',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA/Harvard' }
+  },
+  // Other Major Universities
   {
     id: 'strath',
     name: 'Strathmore University',
-    logo: 'https://picsum.photos/100/100?random=3',
-    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'Harvard' }
+    logo: 'https://picsum.photos/100/100?random=11',
+    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'APA 7th' }
   },
   {
-    id: 'jkuat',
-    name: 'JKUAT',
-    logo: 'https://picsum.photos/100/100?random=4',
-    standards: { font: 'Calibri', size: '11', spacing: 'Double', citationStyle: 'IEEE' }
+    id: 'maseno',
+    name: 'Maseno University',
+    logo: 'https://picsum.photos/100/100?random=12',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
   },
+  {
+    id: 'mmust',
+    name: 'Masinde Muliro Univ. (MMUST)',
+    logo: 'https://picsum.photos/100/100?random=13',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'usiu',
+    name: 'USIU-Africa',
+    logo: 'https://picsum.photos/100/100?random=14',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'daystar',
+    name: 'Daystar University',
+    logo: 'https://picsum.photos/100/100?random=15',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'cuea',
+    name: 'Catholic University (CUEA)',
+    logo: 'https://picsum.photos/100/100?random=16',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'tum',
+    name: 'Technical University of Mombasa',
+    logo: 'https://picsum.photos/100/100?random=17',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'kabarak',
+    name: 'Kabarak University',
+    logo: 'https://picsum.photos/100/100?random=18',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'kemu',
+    name: 'Kenya Methodist University',
+    logo: 'https://picsum.photos/100/100?random=19',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'kisii',
+    name: 'Kisii University',
+    logo: 'https://picsum.photos/100/100?random=20',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'kca',
+    name: 'KCA University',
+    logo: 'https://picsum.photos/100/100?random=21',
+    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'riara',
+    name: 'Riara University',
+    logo: 'https://picsum.photos/100/100?random=22',
+    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'spu',
+    name: "St. Paul's University",
+    logo: 'https://picsum.photos/100/100?random=23',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'anu',
+    name: 'Africa Nazarene University',
+    logo: 'https://picsum.photos/100/100?random=24',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'seku',
+    name: 'South Eastern Kenya Univ.',
+    logo: 'https://picsum.photos/100/100?random=25',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'meru',
+    name: 'Meru Univ. of Science & Tech.',
+    logo: 'https://picsum.photos/100/100?random=26',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'multimedia',
+    name: 'Multimedia University',
+    logo: 'https://picsum.photos/100/100?random=27',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'dedan',
+    name: 'Dedan Kimathi University',
+    logo: 'https://picsum.photos/100/100?random=28',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'pwani',
+    name: 'Pwani University',
+    logo: 'https://picsum.photos/100/100?random=29',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'karatina',
+    name: 'Karatina University',
+    logo: 'https://picsum.photos/100/100?random=30',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'maasai',
+    name: 'Maasai Mara University',
+    logo: 'https://picsum.photos/100/100?random=31',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'machakos',
+    name: 'Machakos University',
+    logo: 'https://picsum.photos/100/100?random=32',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'kirinyaga',
+    name: 'Kirinyaga University',
+    logo: 'https://picsum.photos/100/100?random=33',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'rongo',
+    name: 'Rongo University',
+    logo: 'https://picsum.photos/100/100?random=34',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'taita',
+    name: 'Taita Taveta University',
+    logo: 'https://picsum.photos/100/100?random=35',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'kibabii',
+    name: 'Kibabii University',
+    logo: 'https://picsum.photos/100/100?random=36',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'embu',
+    name: 'University of Embu',
+    logo: 'https://picsum.photos/100/100?random=37',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'garissa',
+    name: 'Garissa University',
+    logo: 'https://picsum.photos/100/100?random=38',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'zetech',
+    name: 'Zetech University',
+    logo: 'https://picsum.photos/100/100?random=39',
+    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'gluk',
+    name: 'Great Lakes Univ. (GLUK)',
+    logo: 'https://picsum.photos/100/100?random=40',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  },
+  {
+    id: 'lukenya',
+    name: 'Lukenya University',
+    logo: 'https://picsum.photos/100/100?random=41',
+    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
+  }
 ];
 
 export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
   const [selectedUni, setSelectedUni] = useState<University | null>(null);
   const [isCustomizing, setIsCustomizing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Custom University State
   const [customConfig, setCustomConfig] = useState<Partial<University>>({
@@ -65,50 +299,35 @@ export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
     }
   };
 
+  const filteredUniversities = KENYAN_UNIVERSITIES.filter(uni => 
+    uni.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto relative animate-fade-in">
-      <div className="text-center mb-12">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto relative animate-fade-in">
+      <div className="text-center mb-8">
         <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">Select your University</h1>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+        <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8">
           We automatically configure margins, fonts, citation styles, and document structure to match your institution's specific guidelines.
         </p>
+        
+        <div className="max-w-md mx-auto relative">
+            <input 
+                type="text" 
+                placeholder="Search your university..." 
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Search className="absolute left-3 top-3.5 text-slate-400" size={20} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {universities.map((uni) => (
-          <div 
-            key={uni.id}
-            onClick={() => setSelectedUni(uni)}
-            className="bg-white rounded-xl shadow-sm hover:shadow-xl border border-slate-200 hover:border-teal-500 transition-all cursor-pointer p-6 flex flex-col items-center group"
-          >
-            <div className="w-20 h-20 rounded-full bg-slate-100 mb-4 overflow-hidden border-2 border-white shadow-sm">
-              <img src={uni.logo} alt={uni.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
-            </div>
-            <h3 className="font-bold text-slate-800 text-center mb-2 group-hover:text-teal-700">{uni.name}</h3>
-            
-            <div className="w-full mt-4 space-y-2 text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">
-              <div className="flex justify-between">
-                <span>Font:</span> <span className="font-semibold text-slate-700">{uni.standards.font}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Spacing:</span> <span className="font-semibold text-slate-700">{uni.standards.spacing}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Style:</span> <span className="font-semibold text-slate-700">{uni.standards.citationStyle}</span>
-              </div>
-            </div>
-
-            <button className="mt-6 w-full py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg group-hover:bg-teal-600 group-hover:text-white group-hover:border-transparent transition-colors flex items-center justify-center space-x-2">
-              <span>Use Template</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        ))}
-        
-        {/* Custom Option */}
+        {/* Custom Option as First Card */}
         <div 
           onClick={() => setIsCustomizing(true)}
-          className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center hover:bg-slate-100 cursor-pointer transition-colors group"
+          className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center hover:bg-slate-100 cursor-pointer transition-colors group min-h-[280px]"
         >
           <div className="w-20 h-20 rounded-full bg-slate-200 mb-4 flex items-center justify-center group-hover:bg-teal-100 group-hover:text-teal-600 transition-colors">
              <Settings size={32} className="text-slate-400 group-hover:text-teal-600" />
@@ -119,6 +338,39 @@ export const Templates: React.FC<TemplatesProps> = ({ onSelect }) => {
               Configure
           </button>
         </div>
+
+        {filteredUniversities.map((uni) => (
+          <div 
+            key={uni.id}
+            onClick={() => setSelectedUni(uni)}
+            className="bg-white rounded-xl shadow-sm hover:shadow-xl border border-slate-200 hover:border-teal-500 transition-all cursor-pointer p-6 flex flex-col items-center group"
+          >
+            <div className="w-20 h-20 rounded-full bg-slate-100 mb-4 overflow-hidden border-2 border-white shadow-sm">
+              <img src={uni.logo} alt={uni.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
+            </div>
+            <h3 className="font-bold text-slate-800 text-center mb-2 group-hover:text-teal-700 leading-tight h-10 flex items-center">{uni.name}</h3>
+            
+            <div className="w-full mt-2 space-y-1 text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">
+              <div className="flex justify-between">
+                <span>Font:</span> <span className="font-semibold text-slate-700">{uni.standards.font}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Size:</span> <span className="font-semibold text-slate-700">{uni.standards.size}pt</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Spacing:</span> <span className="font-semibold text-slate-700">{uni.standards.spacing}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Style:</span> <span className="font-semibold text-slate-700">{uni.standards.citationStyle}</span>
+              </div>
+            </div>
+
+            <button className="mt-4 w-full py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg group-hover:bg-teal-600 group-hover:text-white group-hover:border-transparent transition-colors flex items-center justify-center space-x-2 text-sm">
+              <span>Select Template</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        ))}
       </div>
 
       {/* Confirmation Modal */}

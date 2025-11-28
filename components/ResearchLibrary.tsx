@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { 
   Search, Plus, Filter, Folder, Star, FileText, MoreVertical, 
-  Trash2, ExternalLink, Download, BookOpen, Check, X, Tag, Upload, 
-  PenLine, Clock, Link, Sparkles
+  Trash2, ExternalLink, BookOpen, Check, X, Tag, Sparkles, Hash, Menu,
+  Clock, PenLine
 } from 'lucide-react';
 import { LibraryItem, LibraryFolder } from '../types';
 import { GeminiService } from '../services/geminiService';
+import { OpenCitationsService } from '../services/openCitationsService';
 
 interface ResearchLibraryProps {
   items: LibraryItem[];
@@ -17,6 +18,14 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
   const [activeFolder, setActiveFolder] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addMethod, setAddMethod] = useState<'manual' | 'doi'>('manual');
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  
+  // Advanced Filter State
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterHasPdf, setFilterHasPdf] = useState(false);
+  const [filterReadStatus, setFilterReadStatus] = useState<'all' | 'read' | 'unread' | 'reading'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'journal' | 'book' | 'website' | 'report'>('all');
   
   // Mock Folders
   const [folders, setFolders] = useState<LibraryFolder[]>([
@@ -31,15 +40,30 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
   const [isParsing, setIsParsing] = useState(false);
 
   const filteredItems = items.filter(item => {
-    const matchesFolder = activeFolder === 'all' || item.folderId === activeFolder;
+    // 1. Context (Folder) Match
+    let matchesContext = false;
+    if (activeFolder === 'all') {
+        matchesContext = true;
+    } else if (activeFolder === 'favorites') {
+        matchesContext = item.isFavorite;
+    } else if (activeFolder === 'reading') {
+        // Broaden 'reading' folder to include unread items for better UX ("To Read")
+        matchesContext = item.readStatus === 'reading' || item.readStatus === 'unread';
+    } else {
+        matchesContext = item.folderId === activeFolder;
+    }
+
+    // 2. Search Match
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           item.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    if (activeFolder === 'favorites') return item.isFavorite && matchesSearch;
-    if (activeFolder === 'reading') return item.readStatus === 'reading' && matchesSearch;
+    // 3. Advanced Filters
+    const matchesPdf = !filterHasPdf || (!!item.pdfUrl && item.pdfUrl !== '#');
+    const matchesStatus = filterReadStatus === 'all' || item.readStatus === filterReadStatus;
+    const matchesType = filterType === 'all' || item.type === filterType;
     
-    return matchesFolder && matchesSearch;
+    return matchesContext && matchesSearch && matchesPdf && matchesStatus && matchesType;
   });
 
   const handleToggleFavorite = (id: string) => {
@@ -65,61 +89,111 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
     setIsParsing(true);
     
     try {
-        const parsed = await GeminiService.parseReference(newItemInput);
-        if(parsed) {
-            const newItem: LibraryItem = {
-                ...parsed,
-                id: Date.now().toString(),
-                type: 'journal', // Default, could be inferred
-                tags: [],
-                readStatus: 'unread',
-                isFavorite: false,
-                addedDate: new Date(),
-                folderId: activeFolder === 'favorites' || activeFolder === 'reading' || activeFolder === 'all' ? undefined : activeFolder
-            };
+        let newItem: LibraryItem | null = null;
+        
+        // Attempt DOI lookup if method is DOI or input looks like one
+        const isDoiInput = newItemInput.match(/^(doi:)?10\.\d{4,9}\/[-._;()/:a-zA-Z0-9]+$/i);
+        
+        if (addMethod === 'doi' || isDoiInput) {
+            const metadata = await OpenCitationsService.getMetadata(newItemInput);
+            if (metadata) {
+                 const year = metadata.pub_date ? metadata.pub_date.substring(0, 4) : 'n.d.';
+                 const citations = await OpenCitationsService.getCitationCount(newItemInput);
+
+                 newItem = {
+                     id: Date.now().toString(),
+                     raw: newItemInput,
+                     title: metadata.title || 'Unknown Title',
+                     author: metadata.author ? metadata.author.replace(/;/g, ',') : 'Unknown Author',
+                     year: year,
+                     source: metadata.venue || 'Unknown Source',
+                     formatted: `${metadata.author ? metadata.author.split(';')[0] : 'Unknown'} (${year}). ${metadata.title}. ${metadata.venue || ''}.`,
+                     type: 'journal',
+                     tags: citations > 0 ? [`${citations} Citations`] : [],
+                     readStatus: 'unread',
+                     isFavorite: false,
+                     addedDate: new Date(),
+                     folderId: activeFolder === 'favorites' || activeFolder === 'reading' || activeFolder === 'all' ? undefined : activeFolder
+                 };
+            }
+        }
+
+        // Fallback to Gemini Parsing if no DOI found or manual mode
+        if (!newItem) {
+            const parsed = await GeminiService.parseReference(newItemInput);
+            if(parsed) {
+                newItem = {
+                    ...parsed,
+                    id: Date.now().toString(),
+                    type: 'journal',
+                    tags: [],
+                    readStatus: 'unread',
+                    isFavorite: false,
+                    addedDate: new Date(),
+                    folderId: activeFolder === 'favorites' || activeFolder === 'reading' || activeFolder === 'all' ? undefined : activeFolder
+                };
+            }
+        }
+
+        if(newItem) {
             setItems([newItem, ...items]);
             setNewItemInput('');
             setShowAddModal(false);
         } else {
-            alert('Could not parse reference. Please try again or enter manually.');
+            alert('Could not resolve reference. Please check the DOI or enter details manually.');
         }
     } catch (e) {
         console.error(e);
+        alert('An error occurred.');
     } finally {
         setIsParsing(false);
     }
   };
 
   return (
-    <div className="flex h-full animate-fade-in bg-slate-50">
+    <div className="flex h-full animate-fade-in bg-slate-50 relative overflow-hidden">
       
+      {/* Mobile Overlay */}
+      {isMobileSidebarOpen && (
+        <div 
+            className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
+            onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar Filters */}
-      <div className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
-        <div className="p-4 border-b border-slate-200">
+      <div className={`
+        fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 transition-transform duration-300 ease-in-out md:relative md:translate-x-0
+        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="p-4 border-b border-slate-200 flex justify-between items-center">
            <h2 className="font-serif font-bold text-lg text-slate-800 flex items-center gap-2">
              <BookOpen className="text-teal-600" size={20} /> Library
            </h2>
+           <button onClick={() => setIsMobileSidebarOpen(false)} className="md:hidden text-slate-400">
+               <X size={20} />
+           </button>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
            {/* Main Categories */}
            <div className="space-y-1">
               <button 
-                onClick={() => setActiveFolder('all')}
+                onClick={() => { setActiveFolder('all'); setIsMobileSidebarOpen(false); }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeFolder === 'all' ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                  <div className="flex items-center gap-3"><Folder size={16} /> All References</div>
                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{items.length}</span>
               </button>
               <button 
-                onClick={() => setActiveFolder('favorites')}
+                onClick={() => { setActiveFolder('favorites'); setIsMobileSidebarOpen(false); }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeFolder === 'favorites' ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                  <div className="flex items-center gap-3"><Star size={16} /> Favorites</div>
                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{items.filter(i => i.isFavorite).length}</span>
               </button>
               <button 
-                onClick={() => setActiveFolder('reading')}
+                onClick={() => { setActiveFolder('reading'); setIsMobileSidebarOpen(false); }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeFolder === 'reading' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                  <div className="flex items-center gap-3"><Clock size={16} /> To Read</div>
@@ -137,7 +211,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                  {folders.slice(1).map(folder => (
                    <button 
                      key={folder.id}
-                     onClick={() => setActiveFolder(folder.id)}
+                     onClick={() => { setActiveFolder(folder.id); setIsMobileSidebarOpen(false); }}
                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeFolder === folder.id ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}
                    >
                      <div className="flex items-center gap-3"><Folder size={16} className={activeFolder === folder.id ? 'fill-slate-400 text-slate-400' : ''} /> {folder.name}</div>
@@ -153,42 +227,107 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
              <div className="flex items-center gap-2 mb-1 font-bold text-slate-700">
                 <Sparkles size={12} className="text-teal-500" /> Pro Tip
              </div>
-             Drag and drop PDFs here to automatically extract citations.
+             Use a DOI to automatically fetch accurate metadata from OpenCitations.
            </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden w-full">
         
         {/* Toolbar */}
-        <div className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0 z-10">
-           <div className="relative w-96">
-              <input 
-                type="text" 
-                placeholder="Search authors, titles, tags..." 
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+        <div className="h-auto py-3 md:py-0 md:h-16 border-b border-slate-200 bg-white flex flex-col md:flex-row items-stretch md:items-center justify-between px-4 md:px-6 shrink-0 z-10 gap-3">
+           <div className="flex items-center gap-3 w-full md:w-auto">
+              <button onClick={() => setIsMobileSidebarOpen(true)} className="md:hidden text-slate-500 hover:text-slate-700">
+                  <Menu size={24} />
+              </button>
+              <div className="relative w-full md:w-96">
+                <input 
+                    type="text" 
+                    placeholder="Search authors, titles, tags..." 
+                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+              </div>
            </div>
 
-           <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium border border-slate-200">
-                 <Filter size={16} /> Filter
+           <div className="flex items-center justify-end gap-3">
+              <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${showFilters ? 'bg-slate-100 text-teal-700 border-teal-200' : 'text-slate-600 hover:bg-slate-50 border-slate-200'}`}
+              >
+                 <Filter size={16} /> <span className="hidden sm:inline">Filter</span>
+                 {(filterReadStatus !== 'all' || filterHasPdf || filterType !== 'all') && (
+                    <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                 )}
               </button>
               <button 
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-bold shadow-sm transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-bold shadow-sm transition-colors whitespace-nowrap"
               >
-                 <Plus size={18} /> Add Reference
+                 <Plus size={18} /> <span className="hidden sm:inline">Add Reference</span><span className="sm:hidden">Add</span>
               </button>
            </div>
         </div>
 
+        {/* Advanced Filters Panel */}
+        {showFilters && (
+            <div className="px-4 md:px-6 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-4 animate-fade-in-down">
+               <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Status:</span>
+                  <select 
+                    value={filterReadStatus}
+                    onChange={(e) => setFilterReadStatus(e.target.value as any)}
+                    className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-2 py-1 focus:ring-2 focus:ring-teal-500 outline-none"
+                  >
+                     <option value="all">Any Status</option>
+                     <option value="unread">Unread</option>
+                     <option value="reading">Reading</option>
+                     <option value="read">Completed</option>
+                  </select>
+               </div>
+               
+               <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Format:</span>
+                  <select 
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value as any)}
+                    className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-2 py-1 focus:ring-2 focus:ring-teal-500 outline-none"
+                  >
+                     <option value="all">All Formats</option>
+                     <option value="journal">Journals</option>
+                     <option value="book">Books</option>
+                     <option value="website">Websites</option>
+                     <option value="report">Reports</option>
+                  </select>
+               </div>
+               
+               <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Type:</span>
+                  <button 
+                    onClick={() => setFilterHasPdf(!filterHasPdf)}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${filterHasPdf ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}
+                  >
+                     <FileText size={12} /> 
+                     {filterHasPdf ? 'PDF Only' : 'All Types'}
+                  </button>
+               </div>
+
+               {(filterReadStatus !== 'all' || filterHasPdf || filterType !== 'all') && (
+                   <button 
+                     onClick={() => { setFilterReadStatus('all'); setFilterHasPdf(false); setFilterType('all'); }}
+                     className="text-xs text-slate-500 hover:text-red-600 underline ml-auto"
+                   >
+                     Clear Filters
+                   </button>
+               )}
+            </div>
+        )}
+
         {/* References List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-50">
            {filteredItems.length === 0 ? (
              <div className="h-full flex flex-col items-center justify-center text-slate-400 pb-20">
                 <div className="bg-white p-6 rounded-full shadow-sm mb-4">
@@ -200,8 +339,8 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
            ) : (
              filteredItems.map(item => (
                <div key={item.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
-                  <div className="flex justify-between items-start">
-                     <div className="flex items-start gap-4">
+                  <div className="flex justify-between items-start gap-3">
+                     <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
                         {/* Icon based on type */}
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                             item.pdfUrl ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
@@ -209,13 +348,13 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                            {item.pdfUrl ? <FileText size={20} /> : <BookOpen size={20} />}
                         </div>
                         
-                        <div>
-                           <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1">{item.title}</h3>
-                           <p className="text-sm text-slate-600">
+                        <div className="flex-1 min-w-0">
+                           <h3 className="font-bold text-slate-800 text-base md:text-lg leading-tight mb-1 truncate">{item.title}</h3>
+                           <p className="text-sm text-slate-600 line-clamp-2">
                               <span className="font-medium text-slate-900">{item.author}</span> • {item.year} • <span className="italic">{item.source}</span>
                            </p>
                            
-                           <div className="flex items-center gap-2 mt-3">
+                           <div className="flex flex-wrap items-center gap-2 mt-3">
                               {/* Status Chip */}
                               <button 
                                 onClick={() => handleStatusChange(item.id, item.readStatus === 'read' ? 'unread' : item.readStatus === 'unread' ? 'reading' : 'read')}
@@ -228,6 +367,10 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                                 {item.readStatus}
                               </button>
 
+                              <span className="flex items-center gap-1 text-[10px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full border border-slate-100 uppercase">
+                                 {item.type}
+                              </span>
+
                               {/* Tags */}
                               {item.tags.map(tag => (
                                 <span key={tag} className="flex items-center gap-1 text-[10px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full border border-slate-100">
@@ -236,16 +379,16 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                               ))}
 
                               {/* PDF Link */}
-                              {item.pdfUrl && (
+                              {item.pdfUrl && item.pdfUrl !== '#' && (
                                 <span className="flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium">
-                                   <FileText size={10} /> PDF Attached
+                                   <FileText size={10} /> PDF
                                 </span>
                               )}
                            </div>
                         </div>
                      </div>
 
-                     <div className="flex flex-col gap-2">
+                     <div className="flex flex-col gap-1 md:gap-2 shrink-0">
                         <button 
                           onClick={() => handleToggleFavorite(item.id)}
                           className={`p-2 rounded-full transition-colors ${item.isFavorite ? 'text-amber-400 bg-amber-50' : 'text-slate-300 hover:bg-slate-50 hover:text-slate-500'}`}
@@ -268,7 +411,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                   </div>
 
                   {/* Quick Action Footer */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                      <button className="text-xs font-medium text-slate-500 hover:text-teal-600 flex items-center gap-1">
                         <ExternalLink size={12} /> View Source
                      </button>
@@ -278,11 +421,6 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                      >
                         <Check size={12} /> Copy Citation
                      </button>
-                     {item.pdfUrl && (
-                        <button className="text-xs font-medium text-slate-500 hover:text-teal-600 flex items-center gap-1">
-                            <Download size={12} /> Download PDF
-                        </button>
-                     )}
                   </div>
                </div>
              ))
@@ -300,24 +438,37 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
               </div>
               
               <div className="p-6">
-                 {/* Tabs (Mock) */}
+                 {/* Tabs */}
                  <div className="flex gap-4 mb-6 border-b border-slate-100 pb-1">
-                    <button className="text-sm font-bold text-teal-600 border-b-2 border-teal-600 pb-2">Manual / AI Parse</button>
-                    <button className="text-sm font-medium text-slate-500 pb-2 hover:text-slate-800">Upload PDF</button>
-                    <button className="text-sm font-medium text-slate-500 pb-2 hover:text-slate-800">Search Online</button>
+                    <button 
+                        onClick={() => setAddMethod('manual')}
+                        className={`text-sm font-bold pb-2 border-b-2 transition-colors ${addMethod === 'manual' ? 'text-teal-600 border-teal-600' : 'text-slate-500 border-transparent hover:text-slate-800'}`}
+                    >
+                        Manual / AI Parse
+                    </button>
+                    <button 
+                        onClick={() => setAddMethod('doi')}
+                        className={`text-sm font-bold pb-2 border-b-2 transition-colors ${addMethod === 'doi' ? 'text-teal-600 border-teal-600' : 'text-slate-500 border-transparent hover:text-slate-800'}`}
+                    >
+                        Import DOI
+                    </button>
                  </div>
 
                  <div className="space-y-4">
                     <div>
-                       <label className="block text-sm font-bold text-slate-700 mb-2">Paste Reference or Details</label>
+                       <label className="block text-sm font-bold text-slate-700 mb-2">
+                           {addMethod === 'doi' ? 'Enter DOI' : 'Paste Reference Details'}
+                       </label>
                        <textarea 
                           className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none min-h-[100px]"
-                          placeholder="e.g. Smith, J. (2023). The Future of AI. Academic Press."
+                          placeholder={addMethod === 'doi' ? "e.g. 10.1108/jd-12-2013-0166" : "e.g. Smith, J. (2023). The Future of AI. Academic Press."}
                           value={newItemInput}
                           onChange={(e) => setNewItemInput(e.target.value)}
                        />
                        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                          <Sparkles size={12} className="text-teal-500" /> AI will automatically extract author, title, and metadata.
+                          {addMethod === 'doi' 
+                            ? <><Hash size={12} className="text-teal-500" /> Fetch metadata from OpenCitations.</> 
+                            : <><Sparkles size={12} className="text-teal-500" /> AI will automatically extract author, title, and metadata.</>}
                        </p>
                     </div>
 
@@ -334,7 +485,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                          className="px-6 py-2 bg-teal-600 text-white rounded-lg text-sm font-bold hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
                        >
                          {isParsing ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> : <Check size={16} />}
-                         <span>Add to Library</span>
+                         <span>{addMethod === 'doi' ? 'Search & Add' : 'Add to Library'}</span>
                        </button>
                     </div>
                  </div>

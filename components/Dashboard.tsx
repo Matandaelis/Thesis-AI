@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Clock, CheckCircle, AlertCircle, FileText, Plus, Bell, RefreshCw, ExternalLink, ShieldAlert } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, FileText, Plus, Bell, RefreshCw, ExternalLink, ShieldAlert, Target, Trophy, Edit2 } from 'lucide-react';
 import { Document, UniversityUpdate } from '../types';
 import { GeminiService } from '../services/geminiService';
 
@@ -53,6 +53,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
   const [isScanning, setIsScanning] = useState(false);
   const [lastScanned, setLastScanned] = useState<Date | null>(null);
 
+  // Daily Goal State
+  const [dailyGoal, setDailyGoal] = useState(500);
+  const [todayWords, setTodayWords] = useState(320); // Mocked progress
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+
   // Simple calculated stats
   const completedDocs = documents.filter(d => d.status === 'Completed').length;
   const inProgressDocs = documents.filter(d => d.status !== 'Completed').length;
@@ -63,18 +68,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
   const handleScanUpdates = async () => {
       setIsScanning(true);
       
-      // Identify relevant universities from user's active documents
       const userUniIds = new Set(documents.map(d => d.universityId));
       let universitiesToCheck = Array.from(userUniIds).map(id => UNI_ID_TO_NAME[id as string]).filter(Boolean);
 
-      // Default if no documents
       if (universitiesToCheck.length === 0) {
         universitiesToCheck = ['University of Nairobi', 'Kenyatta University'];
       }
       
-      // Dedup
       universitiesToCheck = Array.from(new Set(universitiesToCheck));
-      
       const newUpdates: UniversityUpdate[] = [];
       
       try {
@@ -84,7 +85,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
         }
 
         setUpdates(prev => {
-            // Merge and remove duplicates based on title + uni
             const combined = [...newUpdates, ...prev];
             const unique = combined.filter((update, index, self) =>
                 index === self.findIndex((u) => (
@@ -101,22 +101,73 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
       }
   };
 
+  const goalPercentage = Math.min(100, Math.round((todayWords / dailyGoal) * 100));
+
   return (
-    <div className="p-4 md:p-8 space-y-8 animate-fade-in">
-      <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-           <h1 className="text-3xl font-bold text-slate-900 font-serif">Welcome back, Edwin</h1>
-           <p className="text-slate-500 mt-2">You have {inProgressDocs} active thesis documents.</p>
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 animate-fade-in pb-20">
+      
+      {/* Header with Goal Widget */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
+        <div className="flex-1">
+           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 font-serif">Welcome back, Edwin</h1>
+           <p className="text-slate-500 mt-1 md:mt-2 text-sm md:text-base">You have {inProgressDocs} active thesis documents.</p>
         </div>
-        <button className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors w-full md:w-auto justify-center">
-            <Plus size={20} />
-            <span>New Task</span>
-        </button>
-      </header>
+        
+        {/* Daily Goal Widget */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4 w-full lg:w-auto min-w-[300px]">
+            <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
+               {/* Circular Progress SVG */}
+               <svg className="w-full h-full transform -rotate-90">
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100" />
+                  <circle 
+                    cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" 
+                    strokeDasharray={175.9} 
+                    strokeDashoffset={175.9 - (175.9 * goalPercentage) / 100} 
+                    className={`${goalPercentage >= 100 ? 'text-green-500' : 'text-teal-500'} transition-all duration-1000 ease-out`} 
+                    strokeLinecap="round"
+                  />
+               </svg>
+               <div className="absolute inset-0 flex items-center justify-center">
+                  {goalPercentage >= 100 ? <Trophy size={20} className="text-green-500" /> : <Target size={20} className="text-teal-600" />}
+               </div>
+            </div>
+            
+            <div className="flex-1">
+                <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Daily Goal</span>
+                    <button onClick={() => setIsEditingGoal(!isEditingGoal)} className="text-slate-400 hover:text-teal-600">
+                        <Edit2 size={12} />
+                    </button>
+                </div>
+                {isEditingGoal ? (
+                    <div className="flex items-center gap-2">
+                        <input 
+                           type="number" 
+                           className="w-20 px-2 py-0.5 text-sm border border-slate-300 rounded focus:ring-1 focus:ring-teal-500 outline-none"
+                           value={dailyGoal}
+                           onChange={(e) => setDailyGoal(Number(e.target.value))}
+                           onBlur={() => setIsEditingGoal(false)}
+                           autoFocus
+                        />
+                        <span className="text-xs text-slate-500">words</span>
+                    </div>
+                ) : (
+                    <div>
+                        <span className="text-xl font-bold text-slate-800">{todayWords}</span>
+                        <span className="text-sm text-slate-500"> / {dailyGoal} words</span>
+                    </div>
+                )}
+            </div>
+            
+            <button className="bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-lg flex items-center justify-center transition-colors shadow-sm">
+                <Plus size={20} />
+            </button>
+        </div>
+      </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
           <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
             <Clock size={24} />
           </div>
@@ -125,7 +176,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
             <p className="text-2xl font-bold text-slate-900">{documents.length}</p>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
           <div className="p-3 bg-green-100 text-green-600 rounded-lg">
             <CheckCircle size={24} />
           </div>
@@ -134,7 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
             <p className="text-2xl font-bold text-slate-900">{avgProgress}%</p>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
           <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
             <AlertCircle size={24} />
           </div>
@@ -145,19 +196,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         
         {/* Left Column (Chart + Docs) */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-6 md:space-y-8">
             {/* Chart Section */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100">
             <h3 className="text-lg font-bold text-slate-800 mb-4">Writing Activity</h3>
-            <div className="h-64">
+            <div className="h-56 md:h-64">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                    <YAxis axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
                     <Tooltip 
                     contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
                     cursor={{ fill: '#f1f5f9' }}
@@ -169,7 +220,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
             </div>
 
             {/* Recent Documents */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-bold text-slate-800">Recent Documents</h3>
                     <button className="text-sm text-teal-600 hover:text-teal-700 font-medium">View All</button>
@@ -184,10 +235,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
                             onClick={() => onOpenDocument(doc)}
                             className="group p-3 rounded-lg border border-slate-100 hover:border-teal-200 hover:bg-teal-50 cursor-pointer transition-all flex items-start space-x-3"
                         >
-                            <FileText className="text-slate-400 group-hover:text-teal-500 mt-1" size={20} />
+                            <FileText className="text-slate-400 group-hover:text-teal-500 mt-1 shrink-0" size={20} />
                             <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-slate-800 group-hover:text-teal-700 text-sm truncate">{doc.title}</h4>
-                            <p className="text-xs text-slate-500 mt-1">{doc.progress}% Complete • {doc.lastModified.toLocaleDateString()}</p>
+                                <h4 className="font-semibold text-slate-800 group-hover:text-teal-700 text-sm truncate">{doc.title}</h4>
+                                <p className="text-xs text-slate-500 mt-1">{doc.progress}% Complete • {doc.lastModified.toLocaleDateString()}</p>
                             </div>
                         </div>
                         ))
@@ -197,7 +248,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
         </div>
 
         {/* Right Column (Updates) */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full relative overflow-hidden">
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full relative overflow-hidden min-h-[400px]">
             {/* Realtime Pulse Indicator */}
             {isScanning && (
                 <div className="absolute top-0 left-0 right-0 h-1 bg-teal-500 animate-pulse z-10"></div>
@@ -242,7 +293,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
                 {updates.map((update) => (
                     <div key={update.id} className="p-4 rounded-lg bg-slate-50 border border-slate-100 hover:border-teal-200 transition-colors group">
                         <div className="flex justify-between items-start mb-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-100">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-100 truncate max-w-[100px]">
                                 {update.universityName}
                             </span>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${

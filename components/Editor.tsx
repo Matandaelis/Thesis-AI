@@ -5,7 +5,8 @@ import {
   Bold, Italic, List, AlignLeft, Sparkles, Search, MessageSquare, 
   BookOpen, ChevronRight, ExternalLink, Scissors, Maximize2, Minimize2, Pen,
   Eye, EyeOff, BarChart2, Book, FileText, Target, Mic, Volume2, Plus, PieChart, Trash2, Copy, BrainCircuit,
-  Clock, Pause, Play, Sigma, Menu, Layout, Layers, ArrowRight, History, RotateCcw, FileClock, ChevronDown, Type, MoreHorizontal
+  Clock, Pause, Play, Sigma, Menu, Layout, Layers, ArrowRight, History, RotateCcw, FileClock, ChevronDown, Type, MoreHorizontal,
+  Headphones, CloudRain, Coffee, Wind
 } from 'lucide-react';
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart as RePieChart, Pie,
@@ -60,6 +61,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
 
   // Sections Generation State
   const [generatingSectionId, setGeneratingSectionId] = useState<string | null>(null);
+  const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
 
   // Research State
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,6 +108,10 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   const [pomodoroActive, setPomodoroActive] = useState(false);
   const [pomodoroTime, setPomodoroTime] = useState(25 * 60); // 25 mins
 
+  // Soundscape State
+  const [activeSound, setActiveSound] = useState<'none' | 'rain' | 'white' | 'cafe'>('none');
+  const [showSoundMenu, setShowSoundMenu] = useState(false);
+
   // Formatting Dropdown State
   const [isFormatMenuOpen, setIsFormatMenuOpen] = useState(false);
   const formatMenuRef = useRef<HTMLDivElement>(null);
@@ -114,11 +120,13 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [selectionRange, setSelectionRange] = useState<{start: number, end: number} | null>(null);
 
-  // Styles - Defensively access properties to prevent undefined errors
+  // Styles - Apply university standards
   const editorStyle = {
     fontFamily: university?.standards?.font || 'Times New Roman',
     fontSize: university?.standards?.size ? `${university.standards.size}pt` : '12pt',
-    lineHeight: university?.standards?.spacing === 'Double' ? '2.0' : university?.standards?.spacing === '1.5' ? '1.5' : '1.5',
+    lineHeight: university?.standards?.spacing === 'Double' ? '2.0' : 
+                university?.standards?.spacing === '1.5' ? '1.5' : 
+                university?.standards?.spacing === '1.0' ? '1.0' : '1.5',
   };
 
   // Effects
@@ -162,7 +170,6 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
             setIsFormatMenuOpen(false);
         }
     }
-    // Now that 'document' prop is aliased to 'thesisDoc', 'document' refers to the global DOM document.
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -440,6 +447,18 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   const handleGenerateOutline = () => {
     const standardOutline = `Chapter 1: Introduction\n1.1 Background of the Study\n1.2 Problem Statement\n1.3 Objectives\n\nChapter 2: Literature Review\n2.1 Theoretical Framework\n2.2 Empirical Review\n\nChapter 3: Methodology\n3.1 Research Design\n3.2 Data Collection\n\nChapter 4: Results\n\nChapter 5: Discussion\n\nChapter 6: Conclusion\n\nReferences`;
     setContent(prev => prev + (prev ? '\n\n' : '') + standardOutline);
+  };
+
+  const handleGenerateSmartOutline = async () => {
+    setIsGeneratingOutline(true);
+    try {
+        const outlineText = await GeminiService.generateThesisOutline(thesisDoc.title);
+        setContent(prev => prev + (prev ? '\n\n' : '') + outlineText);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsGeneratingOutline(false);
+    }
   };
 
   const handleGenerateSectionContent = async (section: OutlineItem) => {
@@ -730,16 +749,37 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
         {!isFocusMode && (
           <div className="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-2 flex items-center justify-between overflow-x-auto no-scrollbar gap-4">
              <div className="flex items-center space-x-4 whitespace-nowrap shrink-0">
-               <span className="text-xs text-slate-500 font-mono hidden sm:inline">{university?.name || 'Standard'}: {editorStyle.fontFamily}, {editorStyle.fontSize}</span>
+               <span className="text-xs text-slate-500 font-mono hidden sm:inline">{university?.name || 'Standard'}: {editorStyle.fontFamily}, {editorStyle.fontSize}, {editorStyle.lineHeight === '2.0' ? 'Double' : editorStyle.lineHeight === '1.5' ? '1.5' : 'Single'} Spacing</span>
              </div>
              
-             {/* Pomodoro Timer */}
-             <div className="flex items-center bg-white border border-slate-200 rounded-md px-2 py-1 space-x-2 shrink-0">
-                 <Clock size={14} className="text-slate-400" />
-                 <span className={`text-xs font-mono font-bold ${pomodoroActive ? 'text-teal-600' : 'text-slate-600'}`}>{formatTime(pomodoroTime)}</span>
-                 <button onClick={() => setPomodoroActive(!pomodoroActive)} className="text-slate-500 hover:text-teal-600">
-                     {pomodoroActive ? <Pause size={12} fill="currentColor"/> : <Play size={12} fill="currentColor"/>}
-                 </button>
+             {/* Pomodoro Timer & Soundscape */}
+             <div className="flex items-center gap-3 shrink-0">
+                 <div className="relative">
+                     <button 
+                        onClick={() => setShowSoundMenu(!showSoundMenu)}
+                        className={`flex items-center bg-white border border-slate-200 rounded-md px-2 py-1 space-x-2 hover:bg-slate-50 ${activeSound !== 'none' ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'text-slate-500'}`}
+                     >
+                        <Headphones size={14} />
+                        <span className="text-xs font-mono font-bold hidden sm:inline">{activeSound === 'none' ? 'Silence' : activeSound.charAt(0).toUpperCase() + activeSound.slice(1)}</span>
+                     </button>
+                     {showSoundMenu && (
+                         <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-20">
+                             <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Soundscapes</div>
+                             <button onClick={() => { setActiveSound('none'); setShowSoundMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex items-center gap-2"><Headphones size={14}/> Silence</button>
+                             <button onClick={() => { setActiveSound('white'); setShowSoundMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex items-center gap-2"><Wind size={14}/> White Noise</button>
+                             <button onClick={() => { setActiveSound('rain'); setShowSoundMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex items-center gap-2"><CloudRain size={14}/> Heavy Rain</button>
+                             <button onClick={() => { setActiveSound('cafe'); setShowSoundMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex items-center gap-2"><Coffee size={14}/> Cafe Ambience</button>
+                         </div>
+                     )}
+                 </div>
+
+                 <div className="flex items-center bg-white border border-slate-200 rounded-md px-2 py-1 space-x-2">
+                     <Clock size={14} className="text-slate-400" />
+                     <span className={`text-xs font-mono font-bold ${pomodoroActive ? 'text-teal-600' : 'text-slate-600'}`}>{formatTime(pomodoroTime)}</span>
+                     <button onClick={() => setPomodoroActive(!pomodoroActive)} className="text-slate-500 hover:text-teal-600">
+                         {pomodoroActive ? <Pause size={12} fill="currentColor"/> : <Play size={12} fill="currentColor"/>}
+                     </button>
+                 </div>
              </div>
 
              <div className="flex space-x-2 shrink-0">
@@ -780,6 +820,11 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
            <div className="flex items-center space-x-4">
               <span>Words: {wordCount}</span>
               <span className="hidden sm:inline">Reading Time: {Math.ceil(wordCount / 200)} min</span>
+              {activeSound !== 'none' && (
+                  <span className="flex items-center gap-1 text-indigo-500 animate-pulse">
+                      <Headphones size={10} /> Sound Active
+                  </span>
+              )}
            </div>
            <div>
               {thesisDoc.lastModified ? `Saved ${thesisDoc.lastModified.toLocaleTimeString()}` : 'Unsaved'}
@@ -816,13 +861,23 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                     <div className="text-center p-6 bg-white rounded-lg border border-dashed border-slate-300">
                       <Layers className="mx-auto text-slate-300 mb-2" size={32} />
                       <p className="text-sm text-slate-600 font-medium mb-1">No sections detected</p>
-                      <p className="text-xs text-slate-400 mb-4">Start by creating a standard outline.</p>
-                      <button 
-                        onClick={handleGenerateOutline}
-                        className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors"
-                      >
-                        Generate Standard Outline
-                      </button>
+                      <p className="text-xs text-slate-400 mb-4">Start by creating an outline.</p>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                            onClick={handleGenerateOutline}
+                            className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition-colors"
+                        >
+                            Use Standard Template
+                        </button>
+                        <button 
+                            onClick={handleGenerateSmartOutline}
+                            disabled={isGeneratingOutline}
+                            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            {isGeneratingOutline ? <RefreshCw className="animate-spin" size={14}/> : <Sparkles size={14}/>}
+                            Generate AI Outline
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -847,12 +902,20 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                          </div>
                        ))}
                        
-                       <div className="pt-4 border-t border-slate-200 mt-4">
+                       <div className="pt-4 border-t border-slate-200 mt-4 flex flex-col gap-2">
                           <button 
                             onClick={handleGenerateOutline}
                             className="w-full py-2 text-xs text-slate-500 border border-dashed border-slate-300 rounded hover:bg-slate-100 hover:text-slate-800"
                           >
                             Append Standard Sections
+                          </button>
+                          <button 
+                            onClick={handleGenerateSmartOutline}
+                            disabled={isGeneratingOutline}
+                            className="w-full py-2 text-xs text-emerald-600 border border-dashed border-emerald-200 rounded hover:bg-emerald-50 hover:text-emerald-800 flex items-center justify-center gap-2"
+                          >
+                            {isGeneratingOutline ? <RefreshCw className="animate-spin" size={12}/> : <Sparkles size={12}/>}
+                            Append AI Suggestions
                           </button>
                        </div>
                     </div>

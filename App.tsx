@@ -4,7 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { DocumentsList } from './components/DocumentsList';
 import { Editor } from './components/Editor';
-import { Templates } from './components/Templates';
+import { Templates, KENYAN_UNIVERSITIES } from './components/Templates';
 import { Marketplace } from './components/Marketplace';
 import { Settings } from './components/Settings';
 import { Toolkit } from './components/Toolkit';
@@ -16,39 +16,13 @@ import { LandingPage } from './components/LandingPage';
 import { Document, University, View, LibraryItem } from './types';
 import { Construction, Menu, GraduationCap, LifeBuoy } from 'lucide-react';
 
-// Shared mock data for universities to ensure standards are available
-const MOCK_UNIVERSITIES: University[] = [
-  {
-    id: 'uon',
-    name: 'University of Nairobi',
-    logo: 'https://picsum.photos/100/100?random=1',
-    standards: { font: 'Times New Roman', size: '12', spacing: 'Double', citationStyle: 'APA 7th' }
-  },
-  {
-    id: 'ku',
-    name: 'Kenyatta University',
-    logo: 'https://picsum.photos/100/100?random=2',
-    standards: { font: 'Arial', size: '11', spacing: '1.5', citationStyle: 'APA 7th' }
-  },
-  {
-    id: 'strath',
-    name: 'Strathmore University',
-    logo: 'https://picsum.photos/100/100?random=3',
-    standards: { font: 'Times New Roman', size: '12', spacing: '1.5', citationStyle: 'Harvard' }
-  },
-  {
-    id: 'jkuat',
-    name: 'JKUAT',
-    logo: 'https://picsum.photos/100/100?random=4',
-    standards: { font: 'Calibri', size: '11', spacing: 'Double', citationStyle: 'IEEE' }
-  }
-];
-
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [previousView, setPreviousView] = useState<View>(View.DASHBOARD);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
   const [activeUniversity, setActiveUniversity] = useState<University | null>(null);
+  // Use the comprehensive list from Templates as the source of truth
+  const [universities, setUniversities] = useState<University[]>(KENYAN_UNIVERSITIES);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Shared Library Items State
@@ -127,8 +101,8 @@ export const App: React.FC = () => {
     setPreviousView(currentView === View.DOCUMENTS ? View.DOCUMENTS : View.DASHBOARD);
     setCurrentDoc(doc);
     
-    // Find associated university from mock data to ensure standards exist
-    const uni = MOCK_UNIVERSITIES.find(u => u.id === doc.universityId) || MOCK_UNIVERSITIES[0];
+    // Find associated university from state to ensure standards exist (supports custom unis)
+    const uni = universities.find(u => u.id === doc.universityId) || universities[0];
     
     setActiveUniversity(uni);
     setCurrentView(View.EDITOR);
@@ -136,6 +110,11 @@ export const App: React.FC = () => {
   };
 
   const handleCreateDocument = (uni: University) => {
+    // If it's a new custom university (not in list), add it to state so it persists
+    if (!universities.find(u => u.id === uni.id)) {
+        setUniversities(prev => [...prev, uni]);
+    }
+
     const newDoc: Document = {
       id: Math.random().toString(36).substr(2, 9),
       title: 'Untitled Thesis',
@@ -148,7 +127,7 @@ export const App: React.FC = () => {
     setDocuments([newDoc, ...documents]);
     setCurrentDoc(newDoc);
     setActiveUniversity(uni);
-    setPreviousView(View.DOCUMENTS); // When creating new, going back should generally go to list
+    setPreviousView(View.DOCUMENTS); 
     setCurrentView(View.EDITOR);
     setIsSidebarOpen(false);
   };

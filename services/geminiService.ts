@@ -307,21 +307,7 @@ export const GeminiService = {
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                title: { type: Type.STRING },
-                type: { type: Type.STRING },
-                data: { 
-                    type: Type.ARRAY, 
-                    items: { type: Type.OBJECT, properties: {} } 
-                },
-                xKey: { type: Type.STRING },
-                dataKeys: { type: Type.ARRAY, items: { type: Type.STRING } },
-                description: { type: Type.STRING }
-            }
-          }
+          responseMimeType: 'application/json'
         }
       });
 
@@ -387,6 +373,23 @@ export const GeminiService = {
           - Ensure smooth flow from previous context if applicable.
           - Do NOT repeat the heading title in your output.
           - Use proper paragraph structure.
+        `
+      });
+      return response.text || "";
+    } catch (error) {
+      return "";
+    }
+  },
+
+  async generateThesisOutline(topic: string): Promise<string> {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `
+          Create a detailed academic thesis outline for the topic: "${topic}".
+          Include standard chapters (Introduction, Literature Review, Methodology, Results, Discussion, Conclusion) and relevant subheadings (e.g., 1.1, 1.2).
+          Format as plain text with clear indentation or numbering.
+          Do not include any introductory text, just the outline.
         `
       });
       return response.text || "";

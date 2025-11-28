@@ -7,67 +7,67 @@ export const Pricing: React.FC = () => {
 
   const plans = [
     {
-      name: 'Starter',
+      name: 'Basic',
       price: 0,
-      description: 'For exploring the platform.',
-      limit: '500 AI Tokens/day',
+      description: 'Essential tools for drafting and basic checks.',
+      limit: '2,000 AI Tokens/mo',
       features: [
         '1 Active Document',
-        'Basic Grammar Check',
-        'Standard Citation Gen',
-        'Export to PDF (Watermarked)'
+        'Basic Grammar & Spell Check',
+        'Standard Citation Generator',
+        'Export to Watermarked PDF'
       ],
       notIncluded: [
-        'Advanced Style AI',
+        'Advanced AI Co-Pilot',
+        'Plagiarism Detection',
         'Deep Logic Critique',
-        'Plagiarism Scan',
-        'Reference Manager'
+        'Reference Library Sync'
       ],
       icon: GraduationCap,
       color: 'slate',
       cta: 'Start Free'
     },
     {
-      name: 'Scholar',
-      price: billingCycle === 'monthly' ? 950 : 3500, // KES
+      name: 'Student Pro',
+      price: billingCycle === 'monthly' ? 850 : 2900, // KES
       period: billingCycle === 'monthly' ? '/mo' : '/sem',
-      savings: billingCycle === 'semester' ? 'Save ~40%' : null,
-      description: 'The standard for Masters students.',
-      limit: '10k AI Tokens/mo',
+      savings: billingCycle === 'semester' ? 'Save 15%' : null,
+      description: 'Perfect for Undergrad & Masters theses.',
+      limit: '50,000 AI Tokens/mo',
       isPopular: true,
       features: [
         'Unlimited Documents',
         'Advanced Style & Tone AI',
-        'Reference Manager',
-        'Export to Word & LaTeX',
-        'Priority Support'
+        'Reference Manager (Zotero Sync)',
+        'Export to Word, PDF & LaTeX',
+        '1 Basic Plagiarism Scan/mo'
       ],
       notIncluded: [
-        'Deep Logic Critique',
-        'Turnitin-Style Report'
+        'Deep Logic (Thinking Mode)',
+        'Grant Proposal Generator'
       ],
       icon: Zap,
       color: 'teal',
-      cta: 'Go Scholar'
+      cta: 'Go Pro'
     },
     {
-      name: 'Researcher',
-      price: billingCycle === 'monthly' ? 2400 : 9000, // KES
+      name: 'Power User',
+      price: billingCycle === 'monthly' ? 2500 : 8500, // KES
       period: billingCycle === 'monthly' ? '/mo' : '/sem',
-      savings: billingCycle === 'semester' ? 'Save ~35%' : null,
-      description: 'Power tools for PhD & Grants.',
-      limit: '50k AI Tokens/mo',
+      savings: billingCycle === 'semester' ? 'Save 15%' : null,
+      description: 'For PhDs, Researchers & Grant Writers.',
+      limit: '200,000 AI Tokens/mo',
       features: [
-        'Everything in Scholar',
-        'Deep Logic Critique (Pro)',
-        'Grant Proposal Generator',
-        'Data Mockup Tools',
-        '1 Free Plagiarism Scan/mo'
+        'Everything in Student Pro',
+        'Deep Logic Critique (Gemini 2.0 Thinking)',
+        'Grant & Slide Deck Generator',
+        'Advanced Data Visualization Tools',
+        'Priority Support & API Access'
       ],
       notIncluded: [],
       icon: Crown,
       color: 'indigo',
-      cta: 'Go Researcher'
+      cta: 'Get Power'
     }
   ];
 
@@ -78,7 +78,7 @@ export const Pricing: React.FC = () => {
       <div className="text-center mb-10">
         <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">Flexible Plans for Every Stage</h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          From first draft to final defense. Cancel anytime.
+          From first draft to final defense. Upgrade or downgrade anytime.
         </p>
         
         {/* Billing Toggle */}
@@ -110,7 +110,7 @@ export const Pricing: React.FC = () => {
             >
               {plan.isPopular && (
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-teal-600 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-md whitespace-nowrap">
-                  Most Students Choice
+                  Most Popular
                 </div>
               )}
 
@@ -182,7 +182,7 @@ export const Pricing: React.FC = () => {
                       <h3 className="font-bold text-lg">Crunch Time Pass</h3>
                       <span className="bg-amber-400 text-slate-900 text-xs font-bold px-2 py-1 rounded uppercase">Weekly</span>
                   </div>
-                  <p className="text-slate-300 text-sm mb-6">7 Days of full Scholar access. Perfect for deadline week or one-off assignments.</p>
+                  <p className="text-slate-300 text-sm mb-6">7 Days of 'Power User' access. Perfect for deadline week or one-off complex assignments.</p>
                   <div className="flex items-center justify-between">
                       <span className="text-2xl font-bold">KES 350</span>
                       <button className="px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-lg hover:bg-amber-50 transition-colors">
@@ -198,7 +198,7 @@ export const Pricing: React.FC = () => {
                   <h3 className="font-bold text-lg text-slate-800 mb-2 flex items-center gap-2">
                       <Sparkles size={18} className="text-teal-500" /> AI Token Top-up
                   </h3>
-                  <p className="text-slate-500 text-sm mb-4">Running low on thoughts? Add 25,000 tokens to any plan anytime.</p>
+                  <p className="text-slate-500 text-sm mb-4">Running low on thoughts? Add 25,000 tokens to any plan anytime. Tokens never expire.</p>
               </div>
               <div className="flex items-center justify-between border-t border-slate-100 pt-4">
                   <span className="text-xl font-bold text-slate-800">KES 250</span>
@@ -214,7 +214,7 @@ export const Pricing: React.FC = () => {
                   <h3 className="font-bold text-lg text-slate-800 mb-2 flex items-center gap-2">
                       <Shield size={18} className="text-rose-500" /> Deep Plagiarism Scan
                   </h3>
-                  <p className="text-slate-500 text-sm mb-4">One-off detailed report checking against 10B+ web pages and journals.</p>
+                  <p className="text-slate-500 text-sm mb-4">One-off detailed report checking against 10B+ web pages and journals. Detailed sources.</p>
               </div>
               <div className="flex items-center justify-between border-t border-slate-100 pt-4">
                   <span className="text-xl font-bold text-slate-800">KES 500</span>
@@ -229,16 +229,16 @@ export const Pricing: React.FC = () => {
       <div className="bg-slate-50 rounded-2xl p-8 border border-slate-100">
         <div className="flex flex-col md:flex-row gap-8 items-center">
             <div className="flex-1">
-                <h3 className="font-bold text-slate-900 mb-2">Why isn't everything free?</h3>
+                <h3 className="font-bold text-slate-900 mb-2">How are tokens counted?</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                    Premium AI models (like Gemini Pro) and academic database access cost money per query. Our pricing ensures we can provide you with reliable, high-quality tools without selling your data.
+                    Generally, 1,000 tokens is about 750 words. A standard "Review" or "Rewrite" might use 500-1,000 tokens. "Deep Logic Critique" uses more as it involves complex reasoning models.
                 </p>
             </div>
             <div className="w-px h-16 bg-slate-200 hidden md:block"></div>
             <div className="flex-1">
-                <h3 className="font-bold text-slate-900 mb-2">Can I get a refund?</h3>
+                <h3 className="font-bold text-slate-900 mb-2">Can I cancel my subscription?</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                    Yes. If you're not satisfied with the Scholar or Researcher plan, contact us within 3 days of purchase for a full refund. Weekly passes are non-refundable.
+                    Yes, anytime. Your access continues until the end of the billing period. We offer refunds within 3 days if you are not satisfied with the Pro plans.
                 </p>
             </div>
         </div>
