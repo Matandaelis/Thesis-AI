@@ -115,6 +115,7 @@ export interface CalendarEvent {
 }
 
 export enum View {
+  LANDING = 'LANDING',
   DASHBOARD = 'DASHBOARD',
   EDITOR = 'EDITOR',
   DOCUMENTS = 'DOCUMENTS',
@@ -126,5 +127,6 @@ export enum View {
   ANALYTICS = 'ANALYTICS',
   COMMUNITY = 'COMMUNITY',
   TOOLKIT = 'TOOLKIT',
-  PRICING = 'PRICING'
+  PRICING = 'PRICING',
+  HELP = 'HELP'
 }

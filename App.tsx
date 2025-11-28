@@ -12,8 +12,9 @@ import { Analytics } from './components/Analytics';
 import { Pricing } from './components/Pricing';
 import { ResearchLibrary } from './components/ResearchLibrary';
 import { Calendar } from './components/Calendar';
+import { LandingPage } from './components/LandingPage';
 import { Document, University, View, LibraryItem } from './types';
-import { Construction, Menu, GraduationCap } from 'lucide-react';
+import { Construction, Menu, GraduationCap, LifeBuoy } from 'lucide-react';
 
 // Shared mock data for universities to ensure standards are available
 const MOCK_UNIVERSITIES: University[] = [
@@ -44,7 +45,7 @@ const MOCK_UNIVERSITIES: University[] = [
 ];
 
 export const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
+  const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [previousView, setPreviousView] = useState<View>(View.DASHBOARD);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
   const [activeUniversity, setActiveUniversity] = useState<University | null>(null);
@@ -161,7 +162,7 @@ export const App: React.FC = () => {
   const PlaceholderView = ({ title, desc }: { title: string, desc: string }) => (
     <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center animate-fade-in">
       <div className="bg-slate-100 p-6 rounded-full mb-6">
-        <Construction size={48} className="text-slate-300" />
+        {title === "Help Center" ? <LifeBuoy size={48} className="text-slate-300" /> : <Construction size={48} className="text-slate-300" />}
       </div>
       <h2 className="text-2xl font-bold text-slate-800 mb-2">{title}</h2>
       <p className="max-w-md">{desc}</p>
@@ -173,6 +174,11 @@ export const App: React.FC = () => {
       </button>
     </div>
   );
+
+  // If in Landing View, render just the landing page
+  if (currentView === View.LANDING) {
+    return <LandingPage onGetStarted={() => setCurrentView(View.DASHBOARD)} />;
+  }
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -258,6 +264,13 @@ export const App: React.FC = () => {
           
           {currentView === View.CALENDAR && (
              <Calendar />
+          )}
+
+          {currentView === View.HELP && (
+             <PlaceholderView 
+               title="Help Center" 
+               desc="Documentation, video tutorials, and support contact details." 
+             />
           )}
 
           {/* New Views Placeholders */}

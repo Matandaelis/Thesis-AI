@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, ShoppingBag, Settings, BookOpen, 
   Library, Calendar, BarChart2, Users, GraduationCap, ChevronRight,
-  Layers, PenTool, Database, Briefcase, X, CreditCard, Sparkles
+  Layers, PenTool, CreditCard, Sparkles, HelpCircle, X
 } from 'lucide-react';
 import { View } from '../types';
 
@@ -12,6 +12,7 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   subItems?: NavItem[];
+  badge?: string;
 }
 
 interface SidebarProps {
@@ -22,7 +23,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isOpen, onClose }) => {
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['AI Tools']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Research Engine', 'Campus']);
 
   const toggleGroup = (label: string) => {
     setExpandedGroups(prev => 
@@ -42,33 +43,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
       ]
     },
     {
-      title: 'Research Engine',
+      title: 'Academic Suite',
       items: [
         { 
-          label: 'AI Tools', 
+          label: 'Research Engine', 
           icon: Sparkles,
           subItems: [
              { id: View.TOOLKIT, label: 'Scholar Toolkit', icon: PenTool },
-             { id: View.RESEARCH, label: 'Research Library', icon: BookOpen },
-             { id: View.ANALYTICS, label: 'Performance Stats', icon: BarChart2 },
+             { id: View.RESEARCH, label: 'References', icon: BookOpen },
+             { id: View.ANALYTICS, label: 'Analytics', icon: BarChart2 },
           ]
         },
         { 
-          label: 'Resources', 
+          label: 'Campus', 
           icon: Library,
           subItems: [
-             { id: View.TEMPLATES, label: 'Uni Templates', icon: Layers },
-             { id: View.MARKETPLACE, label: 'Hire Experts', icon: ShoppingBag },
-             { id: View.COMMUNITY, label: 'Community Hub', icon: Users },
+             { id: View.TEMPLATES, label: 'Templates', icon: Layers },
+             { id: View.MARKETPLACE, label: 'Experts', icon: ShoppingBag, badge: 'New' },
+             { id: View.COMMUNITY, label: 'Community', icon: Users, badge: 'Beta' },
           ]
         }
       ]
     },
     {
-      title: 'Account',
+      title: 'System',
       items: [
         { id: View.PRICING, label: 'Subscription', icon: CreditCard },
         { id: View.SETTINGS, label: 'Settings', icon: Settings },
+        { id: View.HELP, label: 'Help Center', icon: HelpCircle },
       ]
     }
   ];
@@ -148,9 +150,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
                               : 'hover:bg-slate-800 hover:text-white'
                         }`}
                       >
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-3 flex-1">
                           <Icon size={18} className={`${isActive || isChildActive ? 'text-white' : 'text-slate-400 group-hover:text-white'} transition-colors`} />
                           <span className="font-medium text-sm">{item.label}</span>
+                          {item.badge && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${isActive ? 'bg-teal-500 text-white' : 'bg-teal-900 text-teal-200'}`}>
+                                {item.badge}
+                              </span>
+                          )}
                         </div>
                         {hasSubItems && (
                           <div className="text-slate-500">
@@ -177,14 +184,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
                                         if (window.innerWidth < 768) onClose();
                                       }
                                     }}
-                                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 group ${
+                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group ${
                                       isSubActive 
                                         ? 'text-teal-400 bg-slate-800/50 font-medium' 
                                         : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
                                     }`}
                                   >
-                                    <SubIcon size={16} className={`${isSubActive ? 'text-teal-400' : 'text-slate-500 group-hover:text-white'} transition-colors`} />
-                                    <span className="text-xs">{sub.label}</span>
+                                    <div className="flex items-center space-x-3">
+                                      <SubIcon size={16} className={`${isSubActive ? 'text-teal-400' : 'text-slate-500 group-hover:text-white'} transition-colors`} />
+                                      <span className="text-xs">{sub.label}</span>
+                                    </div>
+                                    {sub.badge && (
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${isSubActive ? 'bg-teal-900 text-teal-400' : 'bg-slate-800 text-slate-500 group-hover:text-slate-300'}`}>
+                                            {sub.badge}
+                                        </span>
+                                    )}
                                   </button>
                                )
                             })}

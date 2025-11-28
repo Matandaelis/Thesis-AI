@@ -162,8 +162,9 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
             setIsFormatMenuOpen(false);
         }
     }
-    window.document.addEventListener("mousedown", handleClickOutside);
-    return () => window.document.removeEventListener("mousedown", handleClickOutside);
+    // Now that 'document' prop is aliased to 'thesisDoc', 'document' refers to the global DOM document.
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Version History Loader
