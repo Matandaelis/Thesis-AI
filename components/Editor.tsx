@@ -6,7 +6,7 @@ import {
   BookOpen, ChevronRight, ExternalLink, Scissors, Maximize2, Minimize2, Pen,
   Eye, EyeOff, BarChart2, Book, FileText, Target, Mic, Volume2, Plus, PieChart, Trash2, Copy, BrainCircuit,
   Clock, Pause, Play, Sigma, Menu, Layout, Layers, ArrowRight, History, RotateCcw, FileClock, ChevronDown, Type, MoreHorizontal,
-  Headphones, CloudRain, Coffee, Wind
+  Headphones, CloudRain, Coffee, Wind, DownloadCloud, FileCode, FileType
 } from 'lucide-react';
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart as RePieChart, Pie,
@@ -38,12 +38,63 @@ interface Version {
   description?: string;
 }
 
+const PHRASE_BANK = {
+  'Introduction': [
+    "The primary objective of this study is to...",
+    "This research aims to investigate...",
+    "Recent developments in [field] have heightened the need for...",
+    "This study addresses the gap in...",
+    "The significance of this study lies in...",
+  ],
+  'Literature Review': [
+    "Previous research has established that...",
+    "Smith (2020) argues that...",
+    "However, these studies fail to account for...",
+    "A recurrent theme in the literature is...",
+    "While there is consensus on X, Y remains controversial...",
+  ],
+  'Methodology': [
+    "Data was collected using...",
+    "The research design utilized a...",
+    "Participants were recruited via...",
+    "This approach was chosen because...",
+    "To ensure reliability, the study employed...",
+  ],
+  'Results': [
+    "As shown in Table 1, there is a significant...",
+    "The results indicate that...",
+    "Interestingly, the data suggests...",
+    "Figure 2 illustrates the relationship between...",
+    "Contrary to expectations, no correlation was found...",
+  ],
+  'Discussion': [
+    "These findings suggest that...",
+    "In contrast to earlier findings, this study...",
+    "One possible explanation for this is...",
+    "The implications of this are...",
+    "It is plausible that these results reflect...",
+  ],
+  'Conclusion': [
+    "In conclusion, this study has shown...",
+    "Future research should focus on...",
+    "The main contribution of this work is...",
+    "Ideally, these findings should be replicated...",
+    "Practitioners should consider..."
+  ],
+  'Critical Analysis': [
+    "The evidence seems to indicate...",
+    "This argument is flawed because...",
+    "A limitation of this approach is...",
+    "However, one must consider...",
+  ]
+};
+
 export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university, onSave, onBack, libraryItems }) => {
   const [content, setContent] = useState(thesisDoc.content);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
-  const [activeTab, setActiveTab] = useState<'write' | 'review' | 'research' | 'chat' | 'thesaurus' | 'figures' | 'references' | 'sections' | 'history'>('write');
+  const [activeTab, setActiveTab] = useState<'write' | 'review' | 'research' | 'chat' | 'thesaurus' | 'figures' | 'references' | 'sections' | 'history' | 'phrases'>('write');
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isStructureOpen, setIsStructureOpen] = useState(true); // Control left sidebar
   
@@ -99,6 +150,9 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   const [citationResult, setCitationResult] = useState('');
   const [isGeneratingCitation, setIsGeneratingCitation] = useState(false);
   const [showLibraryPicker, setShowLibraryPicker] = useState(false);
+
+  // Export Modal State
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Voice State
   const [isListening, setIsListening] = useState(false);
@@ -443,6 +497,17 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
       setIsFormatMenuOpen(false);
   };
 
+  const handleInsertPhrase = (phrase: string) => {
+      if (textareaRef.current) {
+          const start = textareaRef.current.selectionStart;
+          const end = textareaRef.current.selectionEnd;
+          const newContent = content.substring(0, start) + phrase + content.substring(end);
+          setContent(newContent);
+      } else {
+          setContent(prev => prev + phrase);
+      }
+  };
+
   // Sections Generation
   const handleGenerateOutline = () => {
     const standardOutline = `Chapter 1: Introduction\n1.1 Background of the Study\n1.2 Problem Statement\n1.3 Objectives\n\nChapter 2: Literature Review\n2.1 Theoretical Framework\n2.2 Empirical Review\n\nChapter 3: Methodology\n3.1 Research Design\n3.2 Data Collection\n\nChapter 4: Results\n\nChapter 5: Discussion\n\nChapter 6: Conclusion\n\nReferences`;
@@ -699,6 +764,15 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
 
               <div className="h-6 w-px bg-slate-200 mx-2"></div>
 
+              {/* Export Button */}
+              <button 
+                onClick={() => setShowExportModal(true)}
+                className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg tooltip" 
+                title="Export Document"
+              >
+                  <DownloadCloud size={20} />
+              </button>
+
               <button onClick={handleReadAloud} className={`p-2 rounded-lg tooltip ${isSpeaking ? 'bg-indigo-100 text-indigo-600' : 'text-slate-600 hover:bg-slate-100'}`} title="Read Aloud">
                   <Volume2 size={20} />
               </button>
@@ -792,11 +866,11 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                 <button onClick={() => setActiveTab(activeTab === 'research' ? 'write' : 'research')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'research' ? 'bg-teal-100 text-teal-700' : 'text-slate-600 hover:bg-slate-200'}`}>
                    <Search size={14} /> <span>Research</span>
                 </button>
+                <button onClick={() => setActiveTab(activeTab === 'phrases' ? 'write' : 'phrases')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'phrases' ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-200'}`}>
+                   <Quote size={14} /> <span>Phrases</span>
+                </button>
                 <button onClick={() => setActiveTab(activeTab === 'history' ? 'write' : 'history')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'history' ? 'bg-amber-100 text-amber-700' : 'text-slate-600 hover:bg-slate-200'}`}>
                    <History size={14} /> <span>History</span>
-                </button>
-                <button onClick={() => setActiveTab(activeTab === 'chat' ? 'write' : 'chat')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'chat' ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-200'}`}>
-                   <MessageSquare size={14} /> <span>Chat</span>
                 </button>
              </div>
           </div>
@@ -842,8 +916,8 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                  <button key={t} onClick={() => setActiveTab(t as any)} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 capitalize ${activeTab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>{t}</button>
              ))}
              <button onClick={() => setActiveTab('sections')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'sections' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Sections</button>
+             <button onClick={() => setActiveTab('phrases')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'phrases' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Phrases</button>
              <button onClick={() => setActiveTab('figures')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'figures' ? 'border-orange-600 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Figures</button>
-             <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'history' ? 'border-amber-600 text-amber-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>History</button>
              
              <button onClick={() => setActiveTab('write')} className="px-3 text-slate-400 hover:text-slate-600"><X size={18} /></button>
           </div>
@@ -922,6 +996,37 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                   )}
                </div>
             </div>
+          )}
+
+          {/* Tab Content: Academic Phrasebank */}
+          {activeTab === 'phrases' && (
+             <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+                <div className="p-4 bg-white border-b border-slate-200">
+                   <h3 className="text-sm font-bold text-slate-700 mb-1">Academic Phrasebank</h3>
+                   <p className="text-xs text-slate-500">Sentence starters to improve academic tone.</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                   {Object.entries(PHRASE_BANK).map(([category, phrases]) => (
+                      <div key={category}>
+                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{category}</h4>
+                         <div className="space-y-2">
+                            {phrases.map((phrase, idx) => (
+                               <button 
+                                 key={idx}
+                                 onClick={() => handleInsertPhrase(phrase)}
+                                 className="w-full text-left p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-400 hover:shadow-sm text-sm text-slate-700 transition-all group"
+                               >
+                                  <div className="flex justify-between items-start">
+                                     <span className="leading-relaxed">{phrase}</span>
+                                     <Plus size={14} className="text-blue-500 opacity-0 group-hover:opacity-100 mt-1 shrink-0" />
+                                  </div>
+                               </button>
+                            ))}
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
           )}
 
           {/* Tab Content: Version History */}
@@ -1372,6 +1477,60 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                    </div>
                 </div>
               )}
+           </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 animate-scale-in">
+              <div className="flex justify-between items-center mb-6">
+                 <h3 className="font-bold text-lg text-slate-800">Export Document</h3>
+                 <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 mb-6">
+                 <button className="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:border-teal-500 hover:shadow-md transition-all group">
+                    <div className="flex items-center gap-3">
+                       <div className="p-2 bg-red-100 text-red-600 rounded-lg"><FileText size={20} /></div>
+                       <div className="text-left">
+                          <span className="block font-bold text-slate-800">PDF Document</span>
+                          <span className="text-xs text-slate-500">Best for printing and sharing</span>
+                       </div>
+                    </div>
+                    <Download size={18} className="text-slate-400 group-hover:text-teal-600" />
+                 </button>
+                 <button className="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:border-teal-500 hover:shadow-md transition-all group">
+                    <div className="flex items-center gap-3">
+                       <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><FileType size={20} /></div>
+                       <div className="text-left">
+                          <span className="block font-bold text-slate-800">Microsoft Word</span>
+                          <span className="text-xs text-slate-500">Editable .docx format</span>
+                       </div>
+                    </div>
+                    <Download size={18} className="text-slate-400 group-hover:text-teal-600" />
+                 </button>
+                 <button className="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:border-teal-500 hover:shadow-md transition-all group">
+                    <div className="flex items-center gap-3">
+                       <div className="p-2 bg-slate-100 text-slate-700 rounded-lg"><FileCode size={20} /></div>
+                       <div className="text-left">
+                          <span className="block font-bold text-slate-800">LaTeX Source</span>
+                          <span className="text-xs text-slate-500">For Overleaf or TeX editors</span>
+                       </div>
+                    </div>
+                    <Download size={18} className="text-slate-400 group-hover:text-teal-600" />
+                 </button>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-lg text-xs text-slate-600 mb-6">
+                 <p className="flex items-center gap-2 mb-1 font-bold text-slate-800"><Check size={14} className="text-green-500" /> Academic Check</p>
+                 <p>Your document will be automatically formatted according to <strong>{university?.name || 'Standard'}</strong> guidelines (Margins, Font, Spacing).</p>
+              </div>
+
+              <button onClick={() => setShowExportModal(false)} className="w-full py-3 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-colors">
+                 Close
+              </button>
            </div>
         </div>
       )}
