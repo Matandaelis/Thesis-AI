@@ -10,8 +10,36 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ThesisAI",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web Browser",
+    "description": "The first AI-powered academic writing platform tailored for Kenyan universities.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "KES"
+    },
+    "featureList": [
+      "University Templates",
+      "AI Co-Pilot",
+      "Data Visualization",
+      "Plagiarism Check"
+    ],
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "2000"
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
+      <script type="application/ld+json">
+        {JSON.stringify(structuredData)}
+      </script>
       
       {/* Navigation */}
       <nav className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">

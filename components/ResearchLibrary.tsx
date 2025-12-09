@@ -3,8 +3,11 @@ import React, { useState } from 'react';
 import { 
   Search, Plus, Filter, Folder, Star, FileText, MoreVertical, 
   Trash2, ExternalLink, BookOpen, Check, X, Tag, Sparkles, Hash, Menu,
-  Clock, PenLine
+  Clock, PenLine, Activity, ArrowUpRight
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer 
+} from 'recharts';
 import { LibraryItem, LibraryFolder } from '../types';
 import { GeminiService } from '../services/geminiService';
 import { OpenCitationsService } from '../services/openCitationsService';
@@ -38,6 +41,11 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
   // New Item State
   const [newItemInput, setNewItemInput] = useState('');
   const [isParsing, setIsParsing] = useState(false);
+
+  // Metrics Modal State
+  const [viewingMetrics, setViewingMetrics] = useState<LibraryItem | null>(null);
+  const [metricsData, setMetricsData] = useState<any>(null);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
 
   const filteredItems = items.filter(item => {
     // 1. Context (Folder) Match
@@ -82,6 +90,45 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
     if(confirm('Are you sure you want to delete this reference?')) {
         setItems(prev => prev.filter(item => item.id !== id));
     }
+  };
+
+  const handleViewMetrics = async (item: LibraryItem) => {
+      // Try to find DOI in raw or check if raw IS a DOI
+      const doiMatch = item.raw.match(/10\.\d{4,9}\/[-._;()/:a-zA-Z0-9]+/i);
+      const doi = doiMatch ? doiMatch[0] : (item.raw.includes('10.') ? item.raw : null);
+      
+      setViewingMetrics(item);
+      setLoadingMetrics(true);
+      setMetricsData(null);
+
+      if (!doi) {
+          setLoadingMetrics(false);
+          return;
+      }
+
+      try {
+         const [incoming, outgoing, recent] = await Promise.all([
+             OpenCitationsService.getCitationCount(doi),
+             OpenCitationsService.getReferenceCount(doi),
+             OpenCitationsService.getIncomingCitations(doi, 50)
+         ]);
+
+         // Process for chart
+         const yearMap: Record<string, number> = {};
+         recent.forEach((c: any) => {
+             if (c.creation) {
+                 const y = c.creation.split('-')[0];
+                 yearMap[y] = (yearMap[y] || 0) + 1;
+             }
+         });
+         const chartData = Object.keys(yearMap).sort().map(y => ({ year: y, count: yearMap[y] }));
+
+         setMetricsData({ incoming, outgoing, chartData, recent });
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setLoadingMetrics(false);
+      }
   };
 
   const handleAddItem = async () => {
@@ -412,8 +459,11 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
 
                   {/* Quick Action Footer */}
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                     <button className="text-xs font-medium text-slate-500 hover:text-teal-600 flex items-center gap-1">
-                        <ExternalLink size={12} /> View Source
+                     <button 
+                        onClick={() => handleViewMetrics(item)}
+                        className="text-xs font-medium text-slate-500 hover:text-teal-600 flex items-center gap-1"
+                     >
+                        <Activity size={12} /> View Metrics
                      </button>
                      <button 
                        onClick={() => {navigator.clipboard.writeText(item.formatted); alert('Citation Copied!')}}
@@ -489,6 +539,78 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                        </button>
                     </div>
                  </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Metrics Modal */}
+      {viewingMetrics && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-scale-in max-h-[90vh] flex flex-col">
+              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                 <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <Activity className="text-teal-600" size={20} /> Citation Impact
+                 </h3>
+                 <button onClick={() => setViewingMetrics(null)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6">
+                 {loadingMetrics ? (
+                     <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                         <div className="animate-spin rounded-full h-8 w-8 border-4 border-teal-500 border-t-transparent mb-4"></div>
+                         <p className="text-sm">Fetching data from OpenCitations...</p>
+                     </div>
+                 ) : !metricsData ? (
+                     <div className="text-center py-10 text-slate-400">
+                         <Hash size={40} className="mx-auto mb-2 opacity-30" />
+                         <p className="text-sm">No DOI found or data unavailable for this reference.</p>
+                     </div>
+                 ) : (
+                     <div className="space-y-6">
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <h4 className="font-bold text-slate-800 text-sm mb-1 line-clamp-2">{viewingMetrics.title}</h4>
+                            <p className="text-xs text-slate-500">{viewingMetrics.author} ({viewingMetrics.year})</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Citations</span>
+                                    <ArrowUpRight size={16} className="text-teal-500"/>
+                                </div>
+                                <span className="text-3xl font-bold text-slate-900">{metricsData.incoming}</span>
+                                <p className="text-xs text-slate-400 mt-1">Times Cited</p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">References</span>
+                                    <BookOpen size={16} className="text-indigo-500"/>
+                                </div>
+                                <span className="text-3xl font-bold text-slate-900">{metricsData.outgoing}</span>
+                                <p className="text-xs text-slate-400 mt-1">Cited Works</p>
+                            </div>
+                        </div>
+
+                        {metricsData.chartData && metricsData.chartData.length > 0 && (
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-64">
+                                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-4">Citation Growth</h4>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={metricsData.chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="year" tick={{fontSize: 10}} axisLine={false} tickLine={false} />
+                                        <YAxis tick={{fontSize: 10}} axisLine={false} tickLine={false} />
+                                        <ReTooltip 
+                                            contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
+                                            cursor={{ fill: '#f8fafc' }}
+                                        />
+                                        <Bar dataKey="count" fill="#0d9488" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                     </div>
+                 )}
               </div>
            </div>
         </div>

@@ -3,15 +3,17 @@ import React, { useState } from 'react';
 import { 
   ChevronLeft, ChevronRight, Plus, Video, MapPin, Clock, 
   Flag, AlertCircle, CheckCircle2, Trash2, X, Calendar as CalendarIcon,
-  MoreVertical, GanttChartSquare
+  MoreVertical, GanttChartSquare, Sparkles, RefreshCw
 } from 'lucide-react';
 import { CalendarEvent } from '../types';
+import { GeminiService } from '../services/geminiService';
 
 export const Calendar: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'roadmap'>('calendar');
+  const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   
   // Mock initial events
   const [events, setEvents] = useState<CalendarEvent[]>([
@@ -127,14 +129,29 @@ export const Calendar: React.FC = () => {
   };
 
   // Mock Roadmap Data (Usually this would be derived from real user milestones)
-  const roadmapStages = [
+  const [roadmapStages, setRoadmapStages] = useState([
       { id: 1, name: 'Proposal Development', start: 0, duration: 20, status: 'completed' },
       { id: 2, name: 'Ethics & Approval', start: 20, duration: 15, status: 'completed' },
       { id: 3, name: 'Data Collection', start: 35, duration: 30, status: 'active' },
       { id: 4, name: 'Data Analysis', start: 65, duration: 25, status: 'pending' },
       { id: 5, name: 'Drafting Chapters', start: 65, duration: 40, status: 'pending' },
       { id: 6, name: 'Final Review & Defense', start: 105, duration: 15, status: 'pending' },
-  ];
+  ]);
+
+  const handleGenerateRoadmap = async () => {
+      const topic = prompt("Enter your thesis topic to generate a custom timeline:");
+      if (!topic) return;
+      
+      setIsGeneratingRoadmap(true);
+      const newStages = await GeminiService.generateStudySchedule(topic, new Date().toISOString());
+      
+      if (newStages && newStages.length > 0) {
+          setRoadmapStages(newStages);
+      } else {
+          alert("Failed to generate roadmap. Please try again.");
+      }
+      setIsGeneratingRoadmap(false);
+  };
 
   const renderCalendarDays = () => {
     const daysInMonth = getDaysInMonth(currentDate);
@@ -258,12 +275,23 @@ export const Calendar: React.FC = () => {
                )}
             </div>
             
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="bg-teal-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold hover:bg-teal-700 flex items-center gap-2 shadow-sm"
-            >
-              <Plus size={16} /> <span className="hidden sm:inline">Add Event</span>
-            </button>
+            {viewMode === 'roadmap' ? (
+                <button 
+                  onClick={handleGenerateRoadmap}
+                  disabled={isGeneratingRoadmap}
+                  className="bg-indigo-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  {isGeneratingRoadmap ? <RefreshCw className="animate-spin" size={16}/> : <Sparkles size={16}/>}
+                  <span className="hidden sm:inline">AI Plan</span>
+                </button>
+            ) : (
+                <button 
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-teal-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold hover:bg-teal-700 flex items-center gap-2 shadow-sm"
+                >
+                  <Plus size={16} /> <span className="hidden sm:inline">Add Event</span>
+                </button>
+            )}
          </div>
 
          {/* Content Grid */}
@@ -294,7 +322,7 @@ export const Calendar: React.FC = () => {
                     </div>
 
                     <div className="space-y-6 relative pl-4 border-l-2 border-slate-200">
-                        {roadmapStages.map((stage) => (
+                        {roadmapStages.map((stage: any) => (
                             <div key={stage.id} className="relative pl-6">
                                 <div className={`absolute -left-[25px] top-0 w-4 h-4 rounded-full border-2 ${
                                     stage.status === 'completed' ? 'bg-green-500 border-green-500' :
@@ -324,7 +352,7 @@ export const Calendar: React.FC = () => {
                                             }`}
                                         ></div>
                                     </div>
-                                    <p className="text-xs text-slate-400 mt-2">Duration: {stage.duration} Days</p>
+                                    <p className="text-xs text-slate-400 mt-2">Duration: {stage.duration} Days • Start: Day {stage.start}</p>
                                 </div>
                             </div>
                         ))}

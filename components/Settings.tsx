@@ -1,26 +1,76 @@
 
 import React, { useState } from 'react';
-import { User, Bell, CreditCard, LogOut, Link, Fingerprint, Library, Cloud, CheckCircle2 } from 'lucide-react';
+import { User, Bell, CreditCard, LogOut, Link, Fingerprint, Library, Cloud, CheckCircle2, Loader2, ExternalLink } from 'lucide-react';
 
 export const Settings: React.FC = () => {
-    const [activeTab, setActiveTab] = useState('profile');
+    const [activeTab, setActiveTab] = useState('integrations'); // Defaulting to integrations for this demo context
+    const [connectingId, setConnectingId] = useState<string | null>(null);
 
-    const userIntegrations = [
+    const [userIntegrations, setUserIntegrations] = useState([
         {
             category: 'Identity & Verification',
             items: [
-                { name: 'ORCID iD', id: 'orcid', desc: 'Sync publication history & verify academic identity.', connected: true, icon: Fingerprint },
-                { name: 'LinkedIn', id: 'linkedin', desc: 'Verify professional credentials for marketplace experts.', connected: false, icon: User },
+                { name: 'ORCID iD', id: 'orcid', desc: 'Sync publication history & verify academic identity.', connected: true, icon: Fingerprint, url: 'https://orcid.org/signin' },
+                { name: 'LinkedIn', id: 'linkedin', desc: 'Verify professional credentials for marketplace experts.', connected: false, icon: User, url: 'https://www.linkedin.com/login' },
             ]
         },
         {
             category: 'Research & Storage',
             items: [
-                { name: 'Zotero', id: 'zotero', desc: 'Sync your personal reference library.', connected: false, icon: Library },
-                { name: 'Google Drive', id: 'gdrive', desc: 'Auto-backup thesis drafts to your personal cloud.', connected: true, icon: Cloud },
+                { name: 'Zotero', id: 'zotero', desc: 'Sync your personal reference library.', connected: false, icon: Library, url: 'https://www.zotero.org/user/login' },
+                { name: 'Google Drive', id: 'gdrive', desc: 'Auto-backup thesis drafts to your personal cloud.', connected: true, icon: Cloud, url: 'https://accounts.google.com/signin' },
             ]
         }
-    ];
+    ]);
+
+    const handleConnect = (serviceId: string, url: string) => {
+        setConnectingId(serviceId);
+        
+        // Simulate OAuth Popup
+        const width = 500;
+        const height = 600;
+        const left = (window.screen.width / 2) - (width / 2);
+        const top = (window.screen.height / 2) - (height / 2);
+        
+        const popup = window.open(
+            url, 
+            'Connect Service', 
+            `width=${width},height=${height},top=${top},left=${left},status=yes,scrollbars=yes`
+        );
+
+        // Simulate asynchronous API handshake
+        setTimeout(() => {
+            if (popup && !popup.closed) popup.close();
+            
+            setUserIntegrations(prev => prev.map(group => ({
+                ...group,
+                items: group.items.map(item => 
+                    item.id === serviceId ? { ...item, connected: true } : item
+                )
+            })));
+            
+            setConnectingId(null);
+            
+            // Show success feedback (In a real app, this would be a toast)
+            // Using a simple alert for simulation feedback if notification system isn't global
+            // but relying on visual state change is better UI.
+        }, 2500);
+    };
+
+    const handleDisconnect = (serviceId: string) => {
+        if (window.confirm("Are you sure you want to disconnect? Features relying on this integration will stop working.")) {
+            setUserIntegrations(prev => prev.map(group => ({
+                ...group,
+                items: group.items.map(item => 
+                    item.id === serviceId ? { ...item, connected: false } : item
+                )
+            })));
+        }
+    };
+
+    const connectedCount = userIntegrations.reduce((acc, group) => 
+        acc + group.items.filter(i => i.connected).length, 0
+    );
 
     return (
         <div className="p-4 md:p-8 max-w-4xl mx-auto animate-fade-in">
@@ -151,7 +201,7 @@ export const Settings: React.FC = () => {
                                     <h2 className="text-xl font-bold text-slate-800">Account Connections</h2>
                                     <p className="text-slate-500 text-sm">Link your personal accounts to import data.</p>
                                 </div>
-                                <span className="bg-teal-50 text-teal-700 text-xs font-bold px-3 py-1 rounded-full">2 Connected</span>
+                                <span className="bg-teal-50 text-teal-700 text-xs font-bold px-3 py-1 rounded-full">{connectedCount} Connected</span>
                             </div>
 
                             <div className="space-y-6">
@@ -173,15 +223,31 @@ export const Settings: React.FC = () => {
                                                             <p className="text-xs text-slate-500 max-w-sm hidden sm:block">{api.desc}</p>
                                                         </div>
                                                     </div>
-                                                    <button 
-                                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                                            api.connected 
-                                                            ? 'bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200' 
-                                                            : 'bg-slate-900 text-white hover:bg-slate-800'
-                                                        }`}
-                                                    >
-                                                        {api.connected ? 'Disconnect' : 'Connect'}
-                                                    </button>
+                                                    
+                                                    {api.connected ? (
+                                                        <button 
+                                                            onClick={() => handleDisconnect(api.id)}
+                                                            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 flex items-center gap-2"
+                                                        >
+                                                            Disconnect
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => handleConnect(api.id, api.url)}
+                                                            disabled={!!connectingId}
+                                                            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-slate-900 text-white hover:bg-slate-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            {connectingId === api.id ? (
+                                                                <>
+                                                                    <Loader2 size={12} className="animate-spin" /> Connecting...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    Connect <ExternalLink size={10} />
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>

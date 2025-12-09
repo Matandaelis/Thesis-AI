@@ -157,8 +157,41 @@ export const Marketplace: React.FC = () => {
     ? services 
     : services.filter(s => s.tags.some(t => t.includes(filter) || (filter === 'Writing' && (t === 'Grammar' || t === 'Rewriting' || t === 'Literature' || t === 'Concept'))));
 
+  // Generate Schema for all services (for better SEO presence even if filtered)
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "itemListElement": services.map((service, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "item": {
+        "@type": "Service",
+        "name": service.title,
+        "description": service.desc,
+        "provider": {
+          "@type": "Person", // or Organization, keeping simple
+          "name": service.provider
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": service.rating,
+          "reviewCount": service.reviews
+        },
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "KES",
+          "price": service.price.replace(/[^0-9]/g, '') || "0"
+        }
+      }
+    }))
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in relative pb-20">
+      <script type="application/ld+json">
+        {JSON.stringify(structuredData)}
+      </script>
+
       <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
            <h1 className="text-3xl font-bold font-serif text-slate-900">Expert Services</h1>

@@ -47,7 +47,7 @@ export interface ChatMessage {
 export interface ResearchLink {
   title: string;
   uri: string;
-  links: ResearchLink[];
+  links?: ResearchLink[];
 }
 
 export interface ResearchResponse {
@@ -114,6 +114,18 @@ export interface CalendarEvent {
   location?: string;
 }
 
+export interface Journal {
+  name: string;
+  publisher: string;
+  impactFactor: string;
+  matchScore: number;
+  matchReason: string;
+  scope: string;
+  acceptanceRate?: string;
+  openAccess: boolean;
+  website?: string;
+}
+
 export enum View {
   LANDING = 'LANDING',
   DASHBOARD = 'DASHBOARD',
@@ -128,5 +140,6 @@ export enum View {
   COMMUNITY = 'COMMUNITY',
   TOOLKIT = 'TOOLKIT',
   PRICING = 'PRICING',
-  HELP = 'HELP'
+  HELP = 'HELP',
+  JOURNAL_MATCHER = 'JOURNAL_MATCHER'
 }
