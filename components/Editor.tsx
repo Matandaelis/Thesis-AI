@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -17,7 +16,7 @@ import {
   Clock, Pause, Play, Sigma, Layout, Layers, ArrowRight, History, RotateCcw, FileClock, ChevronDown, Type, MoreHorizontal,
   Headphones, CloudRain, Coffee, Wind, DownloadCloud, FileCode, FileType, Heading1, Heading2, Heading3,
   Share2, Wifi, ArrowDown, AlignCenter, AlignRight, Underline as UnderlineIcon, Highlighter,
-  Strikethrough, Code, Undo, Redo
+  Strikethrough, Code, Undo, Redo, Image as ImageIcon, FileText
 } from 'lucide-react';
 import { 
   BarChart, Bar, LineChart, Line, PieChart as RePieChart, Pie,
@@ -118,6 +117,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   const [activeTab, setActiveTab] = useState<'write' | 'review' | 'research' | 'chat' | 'thesaurus' | 'figures' | 'references' | 'sections' | 'history' | 'phrases'>('write');
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isStructureOpen, setIsStructureOpen] = useState(true);
+  const [leftSidebarMode, setLeftSidebarMode] = useState<'structure' | 'research'>('structure');
   
   const [reviewMode, setReviewMode] = useState<'suggestions' | 'critique'>('suggestions');
   const [critiqueText, setCritiqueText] = useState('');
@@ -179,10 +179,12 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   const [isFormatMenuOpen, setIsFormatMenuOpen] = useState(false);
   const [isInsertMenuOpen, setIsInsertMenuOpen] = useState(false);
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   
   const formatMenuRef = useRef<HTMLDivElement>(null);
   const insertMenuRef = useRef<HTMLDivElement>(null);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // --- Tiptap Editor Initialization ---
   const editor = useEditor({
@@ -253,6 +255,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
         if (formatMenuRef.current && !formatMenuRef.current.contains(event.target as Node)) setIsFormatMenuOpen(false);
         if (insertMenuRef.current && !insertMenuRef.current.contains(event.target as Node)) setIsInsertMenuOpen(false);
         if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) setIsToolsMenuOpen(false);
+        if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) setIsExportMenuOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -401,6 +404,55 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   const undo = () => editor?.chain().focus().undo().run();
   const redo = () => editor?.chain().focus().redo().run();
 
+  // Export Handlers
+  const handleExportPDF = () => {
+      window.print();
+      setIsExportMenuOpen(false);
+  };
+
+  const handleExportDOCX = () => {
+      if (!editor) return;
+      const htmlContent = `
+          <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+          <head><meta charset='utf-8'><title>${thesisDoc.title}</title></head><body>${editor.getHTML()}</body></html>
+      `;
+      const blob = new Blob([htmlContent], { type: 'application/vnd.ms-word' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${thesisDoc.title.replace(/\s+/g, '_')}.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setIsExportMenuOpen(false);
+  };
+
+  const handleExportLaTeX = () => {
+      if (!editor) return;
+      const content = editor.getText(); // Basic text for now
+      const latex = `
+\\documentclass{article}
+\\title{${thesisDoc.title}}
+\\author{Author}
+\\date{\\today}
+\\begin{document}
+\\maketitle
+
+${content}
+
+\\end{document}
+      `;
+      const blob = new Blob([latex], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${thesisDoc.title.replace(/\s+/g, '_')}.tex`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setIsExportMenuOpen(false);
+  };
+
   // Citation
   const handleGenerateCitation = async () => {
     if (!citationFields.title && !citationFields.source) return;
@@ -489,7 +541,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   }
 
   return (
-    <div className={`fixed inset-0 bg-slate-100 flex overflow-hidden z-50 transition-all duration-300 ${isFocusMode ? 'p-0' : ''}`}>
+    <div className={`fixed inset-0 bg-slate-100 flex overflow-hidden z-50 transition-all duration-300 ${isFocusMode ? 'p-0' : ''} print:static print:h-auto print:overflow-visible`}>
       
       {/* Structure Sidebar (Left) */}
       {!isFocusMode && (
@@ -498,48 +550,122 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
           fixed inset-y-0 left-0 h-full
           md:relative
           ${isStructureOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64 md:translate-x-0 md:w-0'}
+          print:hidden
         `}>
           <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-            <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wider flex items-center whitespace-nowrap">
-              <List size={14} className="mr-2" /> Structure
-            </h3>
+             <div className="flex bg-slate-100 rounded-lg p-1 w-full max-w-[180px]">
+                <button 
+                   onClick={() => setLeftSidebarMode('structure')} 
+                   className={`flex-1 py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${leftSidebarMode === 'structure' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                   <List size={14} /> Structure
+                </button>
+                <button 
+                   onClick={() => setLeftSidebarMode('research')} 
+                   className={`flex-1 py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${leftSidebarMode === 'research' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                   <Search size={14} /> Research
+                </button>
+             </div>
             <button onClick={() => setIsStructureOpen(false)} className="md:hidden p-1 text-slate-400">
                <X size={16} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 w-64">
-            {outline.length === 0 ? (
-              <p className="text-xs text-slate-400 p-4 italic">
-                Add headings (H1, H2) to see document structure.
-              </p>
+          
+          <div className="flex-1 overflow-y-auto w-64">
+            {leftSidebarMode === 'structure' ? (
+              <div className="p-2">
+                {outline.length === 0 ? (
+                  <p className="text-xs text-slate-400 p-4 italic">
+                    Add headings (H1, H2) to see document structure.
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {outline.map((item) => (
+                      <li key={item.id}>
+                        <button 
+                          onClick={() => scrollToSection(item.index)}
+                          className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-slate-100 truncate ${item.level === 1 ? 'font-bold text-slate-800' : 'pl-6 text-slate-600'}`}
+                        >
+                          {item.text}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ) : (
-              <ul className="space-y-1">
-                {outline.map((item) => (
-                  <li key={item.id}>
-                    <button 
-                      onClick={() => scrollToSection(item.index)}
-                      className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-slate-100 truncate ${item.level === 1 ? 'font-bold text-slate-800' : 'pl-6 text-slate-600'}`}
-                    >
-                      {item.text}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex flex-col h-full bg-slate-50/50">
+                 <div className="p-3 border-b border-slate-100">
+                    <div className="relative">
+                       <input 
+                          className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-8 py-2 text-xs focus:ring-1 focus:ring-teal-500 outline-none" 
+                          placeholder="Search topic..." 
+                          value={searchQuery} 
+                          onChange={(e) => setSearchQuery(e.target.value)} 
+                          onKeyDown={(e) => e.key === 'Enter' && handleResearch()} 
+                       />
+                       <Search size={12} className="absolute left-2.5 top-2.5 text-slate-400" />
+                       <button 
+                          onClick={handleResearch} 
+                          className="absolute right-2 top-2 text-teal-600 hover:text-teal-800 disabled:opacity-50"
+                          disabled={isSearching}
+                       >
+                          {isSearching ? <RefreshCw className="animate-spin" size={12}/> : <ArrowRight size={12} />}
+                       </button>
+                    </div>
+                 </div>
+                 
+                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    {researchResults ? (
+                       <>
+                          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                             <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1"><Sparkles size={10} className="text-teal-500"/> AI Summary</h4>
+                                <button onClick={() => handleInsertResearchSummary(researchResults.content)} className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded font-bold hover:bg-teal-100">Insert</button>
+                             </div>
+                             <p className="text-xs text-slate-600 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">{researchResults.content}</p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                             <h4 className="font-bold text-slate-500 text-[10px] uppercase tracking-wider px-1">Sources</h4>
+                             {researchResults.links.map((link, i) => (
+                                <div key={i} className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-teal-300 transition-colors group">
+                                   <a href={link.uri} target="_blank" className="text-xs font-semibold text-slate-800 hover:text-teal-600 line-clamp-2 leading-snug block mb-1">{link.title}</a>
+                                   <div className="flex justify-between items-center mt-1">
+                                      <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{new URL(link.uri).hostname}</span>
+                                      <button onClick={() => { setRefInput(link.uri); setActiveTab('references'); }} className="text-[10px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">+ Cite</button>
+                                   </div>
+                                </div>
+                             ))}
+                          </div>
+                       </>
+                    ) : (
+                       <div className="text-center py-8 text-slate-400">
+                          <BookOpen size={24} className="mx-auto mb-2 opacity-30"/>
+                          <p className="text-xs">Search to find academic sources and AI summaries.</p>
+                       </div>
+                    )}
+                 </div>
+              </div>
             )}
           </div>
-          <div className="p-4 border-t border-slate-200 bg-slate-50 w-64">
-            <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-              <span>Progress</span>
-              <span>{Math.round((wordCount / wordTarget) * 100)}%</span>
+          
+          {leftSidebarMode === 'structure' && (
+            <div className="p-4 border-t border-slate-200 bg-slate-50 w-64">
+                <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+                <span>Progress</span>
+                <span>{Math.round((wordCount / wordTarget) * 100)}%</span>
+                </div>
+                <div className="w-full bg-slate-200 h-1.5 rounded-full">
+                <div 
+                    className="bg-teal-500 h-1.5 rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, (wordCount / wordTarget) * 100)}%` }}
+                ></div>
+                </div>
+                <p className="text-xs text-slate-400 mt-2 text-center">{wordCount} / {wordTarget} words</p>
             </div>
-            <div className="w-full bg-slate-200 h-1.5 rounded-full">
-              <div 
-                className="bg-teal-500 h-1.5 rounded-full transition-all duration-500" 
-                style={{ width: `${Math.min(100, (wordCount / wordTarget) * 100)}%` }}
-              ></div>
-            </div>
-            <p className="text-xs text-slate-400 mt-2 text-center">{wordCount} / {wordTarget} words</p>
-          </div>
+          )}
         </div>
       )}
 
@@ -548,7 +674,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
         
         {/* Toolbar */}
         {!isFocusMode && (
-          <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shadow-sm z-10 overflow-x-auto no-scrollbar gap-4">
+          <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shadow-sm z-10 overflow-x-auto no-scrollbar gap-4 print:hidden">
             <div className="flex items-center space-x-4 shrink-0">
               <button onClick={onBack} className="text-slate-500 hover:text-slate-800 text-sm font-medium whitespace-nowrap">← Back</button>
               <div className="h-6 w-px bg-slate-200"></div>
@@ -613,6 +739,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                        
                        <div className="h-px bg-slate-100 my-1"></div>
                        <button onClick={() => handleRewrite('paraphrase')} className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-indigo-700 text-sm flex items-center gap-2"><RefreshCw size={14}/> Rewrite Selection</button>
+                       <button onClick={handleSynonyms} className="w-full text-left px-4 py-2 hover:bg-teal-50 text-teal-700 text-sm flex items-center gap-2"><BookOpen size={14}/> Find Synonyms</button>
                     </div>
                  )}
               </div>
@@ -635,6 +762,24 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                  )}
               </div>
 
+              {/* Export Dropdown */}
+              <div className="relative" ref={exportMenuRef}>
+                 <button 
+                   onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                   className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isExportMenuOpen ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                 >
+                    <Download size={16} /> <span className="hidden sm:inline">Download</span> <ChevronDown size={14} />
+                 </button>
+
+                 {isExportMenuOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50">
+                       <button onClick={handleExportPDF} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 text-sm flex items-center gap-2"><FileType size={14}/> Export as PDF</button>
+                       <button onClick={handleExportDOCX} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 text-sm flex items-center gap-2"><FileText size={14}/> Export as Word</button>
+                       <button onClick={handleExportLaTeX} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 text-sm flex items-center gap-2"><FileCode size={14}/> Export as LaTeX</button>
+                    </div>
+                 )}
+              </div>
+
               <button onClick={() => setIsFocusMode(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg hidden md:block" title="Focus Mode"><Maximize2 size={20} /></button>
             </div>
           </div>
@@ -642,7 +787,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
 
         {/* Focus Header */}
         {isFocusMode && (
-          <div className="fixed top-0 left-0 right-0 h-16 flex justify-center items-center z-50 pointer-events-none">
+          <div className="fixed top-0 left-0 right-0 h-16 flex justify-center items-center z-50 pointer-events-none print:hidden">
              <div className="pointer-events-auto bg-white/90 backdrop-blur shadow-sm rounded-full px-6 py-2 flex items-center space-x-4 border border-slate-200 mt-4 opacity-0 hover:opacity-100 transition-opacity duration-300">
                 <span className="text-sm font-bold text-slate-700">{wordCount} words</span>
                 <div className="h-4 w-px bg-slate-300"></div>
@@ -655,7 +800,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
 
         {/* Formatting Toolbar Row 2 */}
         {!isFocusMode && (
-          <div className="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-2 flex items-center justify-between overflow-x-auto no-scrollbar gap-4">
+          <div className="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-2 flex items-center justify-between overflow-x-auto no-scrollbar gap-4 print:hidden">
              <div className="flex items-center space-x-2 whitespace-nowrap shrink-0">
                <button onClick={toggleBold} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('bold') ? 'bg-slate-200 text-black' : 'text-slate-500'}`}><Bold size={14}/></button>
                <button onClick={toggleItalic} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('italic') ? 'bg-slate-200 text-black' : 'text-slate-500'}`}><Italic size={14}/></button>
@@ -699,11 +844,11 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
         )}
 
         {/* TIPTAP EDITOR CONTAINER */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center scroll-smooth bg-slate-100 relative pb-20 md:pb-8">
-          <div className="relative w-full max-w-[21cm]">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center scroll-smooth bg-slate-100 relative pb-20 md:pb-8 print:p-0 print:bg-white print:overflow-visible">
+          <div className="relative w-full max-w-[21cm] print:max-w-none print:w-full">
               
               <div 
-                className={`min-h-[50vh] md:min-h-[29.7cm] bg-white shadow-lg p-8 md:p-[2.54cm] text-slate-900 transition-all duration-300 ${isFocusMode ? 'shadow-2xl scale-100 md:scale-105' : ''}`}
+                className={`min-h-[50vh] md:min-h-[29.7cm] bg-white shadow-lg p-8 md:p-[2.54cm] text-slate-900 transition-all duration-300 ${isFocusMode ? 'shadow-2xl scale-100 md:scale-105' : ''} print:shadow-none print:border-none print:m-0`}
                 style={{
                     fontFamily: university?.standards?.font || 'Times New Roman',
                     lineHeight: university?.standards?.spacing === 'Double' ? '2.0' : university?.standards?.spacing === '1.5' ? '1.5' : '1.5',
@@ -715,7 +860,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
         </div>
 
         {/* Mobile Bottom Navigation */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-16 flex items-center justify-around z-50 px-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-16 flex items-center justify-around z-50 px-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
           <button onClick={() => { setIsStructureOpen(!isStructureOpen); setActiveTab('write'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${isStructureOpen ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
              <List size={20} />
              <span className="text-[10px] mt-1 font-medium">Outline</span>
@@ -739,7 +884,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
        </div>
 
         {/* Desktop Status Bar */}
-        <div className="bg-white border-t border-slate-200 px-4 md:px-6 py-2 flex justify-between items-center text-xs text-slate-500 hidden md:flex">
+        <div className="bg-white border-t border-slate-200 px-4 md:px-6 py-2 flex justify-between items-center text-xs text-slate-500 hidden md:flex print:hidden">
            <div className="flex items-center space-x-4">
               <span>Words: {wordCount}</span>
               <span className="hidden sm:inline">Reading Time: {Math.ceil(wordCount / 200)} min</span>
@@ -762,6 +907,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
           ${activeTab !== 'write' ? 'translate-x-0' : 'translate-x-full'}
           w-full md:w-96
           bottom-16 md:bottom-0 
+          print:hidden
         `}>
           
           {/* Sidebar Header with Tabs */}
