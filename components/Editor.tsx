@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -13,10 +14,11 @@ import {
   Bold, Italic, List, AlignLeft, Sparkles, Search, MessageSquare, MessageCircle,
   BookOpen, ChevronRight, ExternalLink, Maximize2, Minimize2, Pen,
   BarChart2, Mic, Volume2, Plus, PieChart, Trash2, Copy, BrainCircuit,
-  Clock, Pause, Play, Sigma, Layout, Layers, ArrowRight, History, RotateCcw, FileClock, ChevronDown, Type, MoreHorizontal,
+  Clock, Pause, Play, Sigma, Layout, Layers, ArrowRight, ArrowLeft, History, RotateCcw, FileClock, ChevronDown, Type, MoreHorizontal,
   Headphones, CloudRain, Coffee, Wind, DownloadCloud, FileCode, FileType, Heading1, Heading2, Heading3,
   Share2, Wifi, ArrowDown, AlignCenter, AlignRight, Underline as UnderlineIcon, Highlighter,
-  Strikethrough, Code, Undo, Redo, Image as ImageIcon, FileText
+  Strikethrough, Code, Undo, Redo, Image as ImageIcon, FileText, Settings, Sliders, Globe, BookmarkPlus,
+  ListOrdered
 } from 'lucide-react';
 import { 
   BarChart, Bar, LineChart, Line, PieChart as RePieChart, Pie,
@@ -25,6 +27,7 @@ import {
 import { Document, AISuggestion, University, ChatMessage, ResearchResponse, Reference, ChartData, LibraryItem } from '../types';
 import { GeminiService } from '../services/geminiService';
 import { OpenCitationsService } from '../services/openCitationsService';
+import { CitationService } from '../services/citationService';
 
 interface EditorProps {
   document: Document;
@@ -32,6 +35,7 @@ interface EditorProps {
   onSave: (doc: Document) => void;
   onBack: () => void;
   libraryItems: LibraryItem[];
+  onAddToLibrary: (update: (prev: LibraryItem[]) => LibraryItem[]) => void;
 }
 
 interface OutlineItem {
@@ -57,7 +61,7 @@ interface Collaborator {
   isActive: boolean;
 }
 
-// ... Phrase Bank (Keep existing)
+// ... Phrase Bank
 const PHRASE_BANK = {
   'Introduction': [
     "The primary objective of this study is to...",
@@ -109,7 +113,7 @@ const PHRASE_BANK = {
   ]
 };
 
-export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university, onSave, onBack, libraryItems }) => {
+export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university, onSave, onBack, libraryItems, onAddToLibrary }) => {
   // State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
@@ -143,6 +147,12 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   const [selectedWord, setSelectedWord] = useState('');
   const [synonyms, setSynonyms] = useState<string[]>([]);
   const [isLoadingSynonyms, setIsLoadingSynonyms] = useState(false);
+
+  // Citation & Reference State
+  const [citationTab, setCitationTab] = useState<'library' | 'search'>('library');
+  const [citationSearchQuery, setCitationSearchQuery] = useState('');
+  const [citationSearchResults, setCitationSearchResults] = useState<Reference[]>([]);
+  const [isSearchingCitations, setIsSearchingCitations] = useState(false);
 
   const [figures, setFigures] = useState<ChartData[]>([]);
   const [figurePrompt, setFigurePrompt] = useState('');
@@ -230,7 +240,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
     },
     editorProps: {
         attributes: {
-            class: 'prose prose-sm md:prose-lg max-w-none focus:outline-none min-h-[50vh]',
+            class: 'prose prose-sm md:prose-lg max-w-none focus:outline-none min-h-[50vh] outline-none',
         },
     },
   });
@@ -453,13 +463,62 @@ ${content}
       setIsExportMenuOpen(false);
   };
 
-  // Citation
+  // Citation Handlers (Internal Search)
+  const handleCitationSearch = async () => {
+    if (!citationSearchQuery.trim()) return;
+    setIsSearchingCitations(true);
+    try {
+        const results = await CitationService.searchPapers(citationSearchQuery);
+        // Map CrossRef to Reference
+        const mappedResults: Reference[] = results.map((r, i) => ({
+            id: `cr-${Date.now()}-${i}`,
+            raw: r.DOI || r.URL || '',
+            author: r.author ? r.author.map(a => `${a.family}, ${a.given?.[0]}.`).join('; ') : 'Unknown',
+            year: r.issued?.['date-parts']?.[0]?.[0]?.toString() || 'n.d.',
+            title: r.title?.[0] || 'Untitled',
+            source: r['container-title']?.[0] || r.publisher || 'Unknown',
+            formatted: '' // Formatted dynamically
+        }));
+        setCitationSearchResults(mappedResults);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsSearchingCitations(false);
+    }
+  };
+
+  const handleAddReferenceToLibrary = (ref: Reference) => {
+    const newItem: LibraryItem = {
+        ...ref,
+        id: Date.now().toString(),
+        type: 'journal',
+        tags: ['Editor Import'],
+        readStatus: 'unread',
+        isFavorite: false,
+        addedDate: new Date(),
+        folderId: undefined,
+        formatted: CitationService.formatCitation(ref, 'APA 7th') // Default for storage
+    };
+    onAddToLibrary((prev) => [newItem, ...prev]);
+    // Also reset search
+    setCitationSearchQuery('');
+    setCitationSearchResults([]);
+    setCitationTab('library');
+  };
+
+  // Citation Modal Helpers
   const handleGenerateCitation = async () => {
     if (!citationFields.title && !citationFields.source) return;
     setIsGeneratingCitation(true);
     try {
-      const details = `Author: ${citationFields.author}, Year: ${citationFields.year}, Title: ${citationFields.title}, Source: ${citationFields.source}`;
-      const res = await GeminiService.generateCitation(details);
+      const details = {
+          author: citationFields.author,
+          year: citationFields.year,
+          title: citationFields.title,
+          source: citationFields.source
+      };
+      // Use client-side formatter if possible, or fallback to AI if needed (using AI here for robust parsing of unstructured)
+      const res = CitationService.formatCitation(details, university?.standards.citationStyle || 'APA 7th');
       setCitationResult(res);
     } catch (e) { console.error(e); } 
     finally { setIsGeneratingCitation(false); }
@@ -470,6 +529,16 @@ ${content}
         editor.chain().focus().insertContent(` ${citationResult} `).run();
         resetCitationModal();
     }
+  };
+
+  const insertQuickCitation = (ref: Reference) => {
+      if (editor) {
+          const style = university?.standards.citationStyle || 'APA 7th';
+          const citationText = CitationService.formatInText(ref as LibraryItem, style);
+          editor.chain().focus().insertContent(` ${citationText} `).run();
+          
+          // Optionally insert full reference at the end (not implemented here fully, but concept exists)
+      }
   };
 
   const resetCitationModal = () => {
@@ -545,140 +614,170 @@ ${content}
       
       {/* Structure Sidebar (Left) */}
       {!isFocusMode && (
-        <div className={`
-          bg-white border-r border-slate-200 flex flex-col shadow-xl md:shadow-sm transition-all duration-300 overflow-hidden z-40
-          fixed inset-y-0 left-0 h-full
-          md:relative
-          ${isStructureOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64 md:translate-x-0 md:w-0'}
-          print:hidden
-        `}>
-          <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-             <div className="flex bg-slate-100 rounded-lg p-1 w-full max-w-[180px]">
-                <button 
-                   onClick={() => setLeftSidebarMode('structure')} 
-                   className={`flex-1 py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${leftSidebarMode === 'structure' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                   <List size={14} /> Structure
-                </button>
-                <button 
-                   onClick={() => setLeftSidebarMode('research')} 
-                   className={`flex-1 py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${leftSidebarMode === 'research' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                   <Search size={14} /> Research
-                </button>
-             </div>
-            <button onClick={() => setIsStructureOpen(false)} className="md:hidden p-1 text-slate-400">
-               <X size={16} />
-            </button>
-          </div>
+        <>
+          {/* Mobile Overlay for Structure */}
+          {isStructureOpen && (
+              <div className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" onClick={() => setIsStructureOpen(false)} />
+          )}
           
-          <div className="flex-1 overflow-y-auto w-64">
-            {leftSidebarMode === 'structure' ? (
-              <div className="p-2">
-                {outline.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-4 italic">
-                    Add headings (H1, H2) to see document structure.
-                  </p>
-                ) : (
-                  <ul className="space-y-1">
-                    {outline.map((item) => (
-                      <li key={item.id}>
-                        <button 
-                          onClick={() => scrollToSection(item.index)}
-                          className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-slate-100 truncate ${item.level === 1 ? 'font-bold text-slate-800' : 'pl-6 text-slate-600'}`}
-                        >
-                          {item.text}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+          <div className={`
+            bg-white border-r border-slate-200 flex flex-col shadow-xl md:shadow-sm transition-all duration-300 overflow-hidden z-40
+            fixed inset-y-0 left-0 h-full
+            md:relative
+            ${isStructureOpen ? 'translate-x-0 w-80 md:w-64' : '-translate-x-full w-80 md:translate-x-0 md:w-0'}
+            print:hidden
+          `}>
+            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <div className="flex bg-slate-100 rounded-lg p-1 w-full max-w-[180px]">
+                  <button 
+                    onClick={() => setLeftSidebarMode('structure')} 
+                    className={`flex-1 py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${leftSidebarMode === 'structure' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    <List size={14} /> Structure
+                  </button>
+                  <button 
+                    onClick={() => setLeftSidebarMode('research')} 
+                    className={`flex-1 py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${leftSidebarMode === 'research' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    <Search size={14} /> Research
+                  </button>
               </div>
-            ) : (
-              <div className="flex flex-col h-full bg-slate-50/50">
-                 <div className="p-3 border-b border-slate-100">
-                    <div className="relative">
-                       <input 
-                          className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-8 py-2 text-xs focus:ring-1 focus:ring-teal-500 outline-none" 
-                          placeholder="Search topic..." 
-                          value={searchQuery} 
-                          onChange={(e) => setSearchQuery(e.target.value)} 
-                          onKeyDown={(e) => e.key === 'Enter' && handleResearch()} 
-                       />
-                       <Search size={12} className="absolute left-2.5 top-2.5 text-slate-400" />
-                       <button 
-                          onClick={handleResearch} 
-                          className="absolute right-2 top-2 text-teal-600 hover:text-teal-800 disabled:opacity-50"
-                          disabled={isSearching}
-                       >
-                          {isSearching ? <RefreshCw className="animate-spin" size={12}/> : <ArrowRight size={12} />}
-                       </button>
-                    </div>
-                 </div>
-                 
-                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                    {researchResults ? (
-                       <>
-                          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                             <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1"><Sparkles size={10} className="text-teal-500"/> AI Summary</h4>
-                                <button onClick={() => handleInsertResearchSummary(researchResults.content)} className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded font-bold hover:bg-teal-100">Insert</button>
-                             </div>
-                             <p className="text-xs text-slate-600 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">{researchResults.content}</p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                             <h4 className="font-bold text-slate-500 text-[10px] uppercase tracking-wider px-1">Sources</h4>
-                             {researchResults.links.map((link, i) => (
-                                <div key={i} className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-teal-300 transition-colors group">
-                                   <a href={link.uri} target="_blank" className="text-xs font-semibold text-slate-800 hover:text-teal-600 line-clamp-2 leading-snug block mb-1">{link.title}</a>
-                                   <div className="flex justify-between items-center mt-1">
-                                      <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{new URL(link.uri).hostname}</span>
-                                      <button onClick={() => { setRefInput(link.uri); setActiveTab('references'); }} className="text-[10px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">+ Cite</button>
-                                   </div>
-                                </div>
-                             ))}
-                          </div>
-                       </>
-                    ) : (
-                       <div className="text-center py-8 text-slate-400">
-                          <BookOpen size={24} className="mx-auto mb-2 opacity-30"/>
-                          <p className="text-xs">Search to find academic sources and AI summaries.</p>
-                       </div>
-                    )}
-                 </div>
+              <button onClick={() => setIsStructureOpen(false)} className="md:hidden p-1 text-slate-400">
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto w-full">
+              {leftSidebarMode === 'structure' ? (
+                <div className="p-2">
+                  {outline.length === 0 ? (
+                    <p className="text-xs text-slate-400 p-4 italic">
+                      Add headings (H1, H2) to see document structure.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {outline.map((item) => (
+                        <li key={item.id}>
+                          <button 
+                            onClick={() => { scrollToSection(item.index); if(window.innerWidth < 768) setIsStructureOpen(false); }}
+                            className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-slate-100 truncate ${item.level === 1 ? 'font-bold text-slate-800' : 'pl-6 text-slate-600'}`}
+                          >
+                            {item.text}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col h-full bg-slate-50/50">
+                  <div className="p-3 border-b border-slate-100">
+                      <div className="relative">
+                        <input 
+                            className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-8 py-2 text-xs focus:ring-1 focus:ring-teal-500 outline-none" 
+                            placeholder="Search topic..." 
+                            value={searchQuery} 
+                            onChange={(e) => setSearchQuery(e.target.value)} 
+                            onKeyDown={(e) => e.key === 'Enter' && handleResearch()} 
+                        />
+                        <Search size={12} className="absolute left-2.5 top-2.5 text-slate-400" />
+                        <button 
+                            onClick={handleResearch} 
+                            className="absolute right-2 top-2 text-teal-600 hover:text-teal-800 disabled:opacity-50"
+                            disabled={isSearching}
+                        >
+                            {isSearching ? <RefreshCw className="animate-spin" size={12}/> : <ArrowRight size={12} />}
+                        </button>
+                      </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                      {researchResults ? (
+                        <>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                  <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1"><Sparkles size={10} className="text-teal-500"/> AI Summary</h4>
+                                  <button onClick={() => handleInsertResearchSummary(researchResults.content)} className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded font-bold hover:bg-teal-100">Insert</button>
+                              </div>
+                              <p className="text-xs text-slate-600 leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">{researchResults.content}</p>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <h4 className="font-bold text-slate-500 text-[10px] uppercase tracking-wider px-1">Sources</h4>
+                              {researchResults.links.map((link, i) => (
+                                  <div key={i} className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-teal-300 transition-colors group">
+                                    <a href={link.uri} target="_blank" className="text-xs font-semibold text-slate-800 hover:text-teal-600 line-clamp-2 leading-snug block mb-1">{link.title}</a>
+                                    <div className="flex justify-between items-center mt-1">
+                                        <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{new URL(link.uri).hostname}</span>
+                                        <button onClick={() => { setRefInput(link.uri); setActiveTab('references'); }} className="text-[10px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">+ Cite</button>
+                                    </div>
+                                  </div>
+                              ))}
+                            </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-8 text-slate-400">
+                            <BookOpen size={24} className="mx-auto mb-2 opacity-30"/>
+                            <p className="text-xs">Search to find academic sources and AI summaries.</p>
+                        </div>
+                      )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {leftSidebarMode === 'structure' && (
+              <div className="p-4 border-t border-slate-200 bg-slate-50">
+                  <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+                  <span>Progress</span>
+                  <span>{Math.round((wordCount / wordTarget) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full">
+                  <div 
+                      className="bg-teal-500 h-1.5 rounded-full transition-all duration-500" 
+                      style={{ width: `${Math.min(100, (wordCount / wordTarget) * 100)}%` }}
+                  ></div>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2 text-center">{wordCount} / {wordTarget} words</p>
               </div>
             )}
           </div>
-          
-          {leftSidebarMode === 'structure' && (
-            <div className="p-4 border-t border-slate-200 bg-slate-50 w-64">
-                <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-                <span>Progress</span>
-                <span>{Math.round((wordCount / wordTarget) * 100)}%</span>
-                </div>
-                <div className="w-full bg-slate-200 h-1.5 rounded-full">
-                <div 
-                    className="bg-teal-500 h-1.5 rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min(100, (wordCount / wordTarget) * 100)}%` }}
-                ></div>
-                </div>
-                <p className="text-xs text-slate-400 mt-2 text-center">{wordCount} / {wordTarget} words</p>
-            </div>
-          )}
-        </div>
+        </>
       )}
 
-      {/* Main Editor Area */}
+      {/* Main Editor Area ... (Previous Content) ... */}
       <div className="flex-1 flex flex-col min-w-0 relative bg-slate-100 h-full">
-        
-        {/* Toolbar */}
+        {/* Mobile Header */}
         {!isFocusMode && (
-          <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shadow-sm z-10 overflow-x-auto no-scrollbar gap-4 print:hidden">
+          <div className="md:hidden h-14 bg-white border-b border-slate-200 flex items-center justify-between px-3 shadow-sm z-20 shrink-0">
+             <div className="flex items-center gap-3 overflow-hidden">
+               <button onClick={onBack} className="p-1 -ml-1 text-slate-500 hover:bg-slate-100 rounded-full"><ArrowLeft size={20}/></button>
+               <h2 className="text-sm font-bold text-slate-800 truncate">{thesisDoc.title}</h2>
+             </div>
+             <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setIsFocusMode(!isFocusMode)}
+                  className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"
+                >
+                  <Maximize2 size={18}/>
+                </button>
+                <button 
+                  onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                  className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"
+                >
+                  <MoreHorizontal size={18}/>
+                </button>
+             </div>
+          </div>
+        )}
+
+        {/* Desktop Toolbar */}
+        {!isFocusMode && (
+          <div className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-6 shadow-sm z-10 overflow-x-auto no-scrollbar gap-4 print:hidden">
             <div className="flex items-center space-x-4 shrink-0">
               <button onClick={onBack} className="text-slate-500 hover:text-slate-800 text-sm font-medium whitespace-nowrap">← Back</button>
               <div className="h-6 w-px bg-slate-200"></div>
-              <div className="hidden md:block">
+              <div>
                 {!isStructureOpen && (
                    <button onClick={() => setIsStructureOpen(true)} className="p-2 text-slate-500 hover:bg-slate-100 rounded" title="Open Structure">
                       <Layout size={20} />
@@ -689,13 +788,13 @@ ${content}
                  <button onClick={undo} className="p-1.5 rounded hover:bg-slate-100 text-slate-500" title="Undo"><Undo size={16} /></button>
                  <button onClick={redo} className="p-1.5 rounded hover:bg-slate-100 text-slate-500" title="Redo"><Redo size={16} /></button>
               </div>
-              <h2 className="font-serif font-bold text-lg text-slate-800 truncate max-w-[150px] md:max-w-xs">{thesisDoc.title}</h2>
+              <h2 className="font-serif font-bold text-lg text-slate-800 truncate max-w-xs">{thesisDoc.title}</h2>
             </div>
             
             <div className="flex items-center space-x-2 shrink-0">
               
               {/* Collaboration Avatars */}
-              <div className="hidden sm:flex items-center -space-x-2 mr-2">
+              <div className="hidden lg:flex items-center -space-x-2 mr-2">
                   {collaborators.map(c => (
                       <div key={c.id} className="relative group/avatar">
                           <img src={c.avatar} alt={c.name} className="w-8 h-8 rounded-full border-2 border-white cursor-pointer hover:scale-110 transition-transform" />
@@ -704,9 +803,8 @@ ${content}
                   ))}
               </div>
 
-              {/* Status */}
               <div className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-slate-50 ${isConnected ? 'text-green-600' : 'text-red-500'}`}>
-                  <Wifi size={10} /> <span className="hidden md:inline">{isConnected ? 'Online' : 'Offline'}</span>
+                  <Wifi size={10} /> <span className="hidden xl:inline">{isConnected ? 'Online' : 'Offline'}</span>
               </div>
 
               <div className="h-6 w-px bg-slate-200 mx-2"></div>
@@ -717,11 +815,12 @@ ${content}
                    onClick={() => setIsFormatMenuOpen(!isFormatMenuOpen)}
                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isFormatMenuOpen ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                  >
-                    <Type size={16} /> <span className="hidden sm:inline">Format</span> <ChevronDown size={14} />
+                    <Type size={16} /> <span className="hidden xl:inline">Format</span> <ChevronDown size={14} />
                  </button>
 
                  {isFormatMenuOpen && (
                     <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50">
+                       {/* ... Format Menu Content ... */}
                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Text Style</div>
                        <button onClick={toggleBold} className={`w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex items-center gap-2 ${editor.isActive('bold') ? 'bg-slate-100 font-bold' : ''}`}><Bold size={14}/> Bold</button>
                        <button onClick={toggleItalic} className={`w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex items-center gap-2 ${editor.isActive('italic') ? 'bg-slate-100 font-bold' : ''}`}><Italic size={14}/> Italic</button>
@@ -750,7 +849,7 @@ ${content}
                    onClick={() => setIsInsertMenuOpen(!isInsertMenuOpen)}
                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isInsertMenuOpen ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                  >
-                    <Plus size={16} /> <span className="hidden sm:inline">Insert</span> <ChevronDown size={14} />
+                    <Plus size={16} /> <span className="hidden xl:inline">Insert</span> <ChevronDown size={14} />
                  </button>
 
                  {isInsertMenuOpen && (
@@ -768,7 +867,7 @@ ${content}
                    onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isExportMenuOpen ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                  >
-                    <Download size={16} /> <span className="hidden sm:inline">Download</span> <ChevronDown size={14} />
+                    <Download size={16} /> <span className="hidden xl:inline">Download</span> <ChevronDown size={14} />
                  </button>
 
                  {isExportMenuOpen && (
@@ -798,9 +897,9 @@ ${content}
           </div>
         )}
 
-        {/* Formatting Toolbar Row 2 */}
+        {/* Desktop Formatting Toolbar Row 2 */}
         {!isFocusMode && (
-          <div className="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-2 flex items-center justify-between overflow-x-auto no-scrollbar gap-4 print:hidden">
+          <div className="hidden md:flex bg-slate-50 border-b border-slate-200 px-6 py-2 items-center justify-between overflow-x-auto no-scrollbar gap-4 print:hidden shrink-0">
              <div className="flex items-center space-x-2 whitespace-nowrap shrink-0">
                <button onClick={toggleBold} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('bold') ? 'bg-slate-200 text-black' : 'text-slate-500'}`}><Bold size={14}/></button>
                <button onClick={toggleItalic} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('italic') ? 'bg-slate-200 text-black' : 'text-slate-500'}`}><Italic size={14}/></button>
@@ -826,7 +925,7 @@ ${content}
              </div>
 
              {/* Right Sidebar Toggles */}
-             <div className="hidden md:flex space-x-2 shrink-0">
+             <div className="hidden lg:flex space-x-2 shrink-0">
                 <button onClick={() => setActiveTab(activeTab === 'figures' ? 'write' : 'figures')} className={`p-1.5 rounded flex items-center space-x-1 text-xs font-medium ${activeTab === 'figures' ? 'bg-orange-100 text-orange-700' : 'text-slate-600 hover:bg-slate-200'}`}>
                    <PieChart size={14} /> <span>Figures</span>
                 </button>
@@ -844,11 +943,11 @@ ${content}
         )}
 
         {/* TIPTAP EDITOR CONTAINER */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center scroll-smooth bg-slate-100 relative pb-20 md:pb-8 print:p-0 print:bg-white print:overflow-visible">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center scroll-smooth bg-slate-100 relative pb-32 md:pb-8 print:p-0 print:bg-white print:overflow-visible">
           <div className="relative w-full max-w-[21cm] print:max-w-none print:w-full">
               
               <div 
-                className={`min-h-[50vh] md:min-h-[29.7cm] bg-white shadow-lg p-8 md:p-[2.54cm] text-slate-900 transition-all duration-300 ${isFocusMode ? 'shadow-2xl scale-100 md:scale-105' : ''} print:shadow-none print:border-none print:m-0`}
+                className={`min-h-[50vh] md:min-h-[29.7cm] bg-white shadow-lg p-6 md:p-[2.54cm] text-slate-900 transition-all duration-300 ${isFocusMode ? 'shadow-2xl scale-100 md:scale-105' : ''} print:shadow-none print:border-none print:m-0`}
                 style={{
                     fontFamily: university?.standards?.font || 'Times New Roman',
                     lineHeight: university?.standards?.spacing === 'Double' ? '2.0' : university?.standards?.spacing === '1.5' ? '1.5' : '1.5',
@@ -859,32 +958,46 @@ ${content}
           </div>
         </div>
 
+        {/* Mobile Formatting Toolbar (Sticky above nav) */}
+        {!isFocusMode && activeTab === 'write' && (
+           <div className="md:hidden fixed bottom-16 left-0 right-0 h-10 bg-slate-50 border-t border-slate-200 flex items-center px-2 gap-2 overflow-x-auto no-scrollbar z-40">
+               <button onClick={toggleBold} className={`p-1.5 rounded ${editor.isActive('bold') ? 'bg-slate-200 text-black' : 'text-slate-500'}`}><Bold size={16}/></button>
+               <button onClick={toggleItalic} className={`p-1.5 rounded ${editor.isActive('italic') ? 'bg-slate-200 text-black' : 'text-slate-500'}`}><Italic size={16}/></button>
+               <button onClick={toggleList} className={`p-1.5 rounded ${editor.isActive('bulletList') ? 'bg-slate-200 text-black' : 'text-slate-500'}`}><List size={16}/></button>
+               <div className="w-px h-4 bg-slate-300 mx-1 shrink-0"></div>
+               <button onClick={() => handleRewrite('paraphrase')} className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded shrink-0">AI Paraphrase</button>
+               <button onClick={handleSynonyms} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded shrink-0">Synonyms</button>
+           </div>
+        )}
+
         {/* Mobile Bottom Navigation */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-16 flex items-center justify-around z-50 px-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
-          <button onClick={() => { setIsStructureOpen(!isStructureOpen); setActiveTab('write'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${isStructureOpen ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
-             <List size={20} />
-             <span className="text-[10px] mt-1 font-medium">Outline</span>
-          </button>
-          <button onClick={() => { setIsStructureOpen(false); setActiveTab('write'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${!isStructureOpen && activeTab === 'write' ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
-             <Pen size={20} />
-             <span className="text-[10px] mt-1 font-medium">Write</span>
-          </button>
-          <button onClick={() => { setIsStructureOpen(false); setActiveTab('research'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'research' ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
-             <Search size={20} />
-             <span className="text-[10px] mt-1 font-medium">Research</span>
-          </button>
-          <button onClick={() => { setIsStructureOpen(false); setActiveTab('review'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'review' ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
-             <Sparkles size={20} />
-             <span className="text-[10px] mt-1 font-medium">Review</span>
-          </button>
-          <button onClick={() => { setIsStructureOpen(false); setActiveTab('chat'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'chat' ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
-             <MessageCircle size={20} />
-             <span className="text-[10px] mt-1 font-medium">Chat</span>
-          </button>
-       </div>
+        {!isFocusMode && (
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-16 flex items-center justify-around z-50 px-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
+            <button onClick={() => { setIsStructureOpen(true); setActiveTab('write'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${isStructureOpen ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
+              <List size={20} />
+              <span className="text-[10px] mt-1 font-medium">Outline</span>
+            </button>
+            <button onClick={() => { setIsStructureOpen(false); setActiveTab('write'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${!isStructureOpen && activeTab === 'write' ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
+              <Pen size={20} />
+              <span className="text-[10px] mt-1 font-medium">Write</span>
+            </button>
+            <button onClick={() => { setIsStructureOpen(false); setActiveTab('research'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'research' ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
+              <Search size={20} />
+              <span className="text-[10px] mt-1 font-medium">Research</span>
+            </button>
+            <button onClick={() => { setIsStructureOpen(false); setActiveTab('review'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'review' ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
+              <Sparkles size={20} />
+              <span className="text-[10px] mt-1 font-medium">Review</span>
+            </button>
+            <button onClick={() => { setIsStructureOpen(false); setActiveTab('chat'); }} className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'chat' ? 'text-teal-600 bg-teal-50' : 'text-slate-500'}`}>
+              <MessageCircle size={20} />
+              <span className="text-[10px] mt-1 font-medium">Chat</span>
+            </button>
+          </div>
+        )}
 
         {/* Desktop Status Bar */}
-        <div className="bg-white border-t border-slate-200 px-4 md:px-6 py-2 flex justify-between items-center text-xs text-slate-500 hidden md:flex print:hidden">
+        <div className="bg-white border-t border-slate-200 px-4 md:px-6 py-2 flex justify-between items-center text-xs text-slate-500 hidden md:flex print:hidden shrink-0">
            <div className="flex items-center space-x-4">
               <span>Words: {wordCount}</span>
               <span className="hidden sm:inline">Reading Time: {Math.ceil(wordCount / 200)} min</span>
@@ -900,26 +1013,28 @@ ${content}
         </div>
       </div>
 
-      {/* AI Sidebar - Tabbed Interface (Right) - Hidden in Focus Mode */}
+      {/* AI Sidebar - Tabbed Interface (Right) */}
       {!isFocusMode && (
         <div className={`
-          bg-white border-l border-slate-200 shadow-xl transform transition-all duration-300 flex flex-col absolute right-0 top-0 z-20
-          ${activeTab !== 'write' ? 'translate-x-0' : 'translate-x-full'}
-          w-full md:w-96
-          bottom-16 md:bottom-0 
+          bg-white shadow-xl transform transition-transform duration-300 flex flex-col z-50
+          fixed inset-0 md:static md:w-96 md:border-l md:border-slate-200 md:translate-x-0 md:shadow-none
+          ${activeTab !== 'write' ? 'translate-x-0' : 'translate-x-full md:translate-x-full'}
+          ${window.innerWidth < 768 && activeTab !== 'write' ? 'block' : ''}
           print:hidden
         `}>
           
           {/* Sidebar Header with Tabs */}
-          <div className="flex items-center border-b border-slate-200 px-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-center border-b border-slate-200 px-1 overflow-x-auto no-scrollbar shrink-0">
+             <div className="md:hidden p-2">
+                <button onClick={() => setActiveTab('write')} className="p-2 bg-slate-100 rounded-full"><ArrowLeft size={16}/></button>
+             </div>
              {['review', 'research', 'chat'].map(t => (
                  <button key={t} onClick={() => setActiveTab(t as any)} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 capitalize ${activeTab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>{t}</button>
              ))}
              <button onClick={() => setActiveTab('sections')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'sections' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Sections</button>
-             <button onClick={() => setActiveTab('phrases')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'phrases' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Phrases</button>
-             <button onClick={() => setActiveTab('figures')} className={`flex-1 py-3 px-2 text-xs font-medium border-b-2 ${activeTab === 'figures' ? 'border-orange-600 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Figures</button>
-             
-             <button onClick={() => setActiveTab('write')} className="px-3 text-slate-400 hover:text-slate-600"><X size={18} /></button>
+             <div className="hidden md:block">
+               <button onClick={() => setActiveTab('write')} className="px-3 text-slate-400 hover:text-slate-600"><X size={18} /></button>
+             </div>
           </div>
 
           {/* Sidebar Content Render */}
@@ -936,7 +1051,7 @@ ${content}
                     </button>
                   </div>
                </div>
-               <div className="flex-1 overflow-y-auto p-4 space-y-3">
+               <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20 md:pb-4">
                    {outline.map((section) => (
                      <div key={section.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:border-emerald-300">
                         <div className="flex justify-between items-start mb-2">
@@ -953,7 +1068,7 @@ ${content}
 
           {activeTab === 'phrases' && (
              <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-20 md:pb-4">
                    {Object.entries(PHRASE_BANK).map(([category, phrases]) => (
                       <div key={category}>
                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{category}</h4>
@@ -971,7 +1086,7 @@ ${content}
           )}
 
           {activeTab === 'review' && (
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col bg-slate-50">
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col bg-slate-50 pb-20 md:pb-4">
                 <div className="bg-white p-2 rounded-lg border border-slate-200 mb-4 flex space-x-1">
                    <button onClick={() => setReviewMode('suggestions')} className={`flex-1 text-xs py-2 rounded-md font-medium ${reviewMode === 'suggestions' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500'}`}>Quick Fixes</button>
                    <button onClick={() => setReviewMode('critique')} className={`flex-1 text-xs py-2 rounded-md font-medium ${reviewMode === 'critique' ? 'bg-teal-100 text-teal-700' : 'text-slate-500'}`}>Deep Critique</button>
@@ -1014,14 +1129,14 @@ ${content}
           )}
 
           {activeTab === 'research' && (
-            <div className="flex-1 flex flex-col bg-slate-50">
+            <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
                <div className="p-4 bg-white border-b border-slate-200">
                   <div className="relative">
                      <input className="w-full bg-slate-100 border-none rounded-lg pl-3 pr-10 py-2 text-sm" placeholder="Search topic..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleResearch()} />
                      <button onClick={handleResearch} className="absolute right-2 top-1.5 text-slate-400" disabled={isSearching}>{isSearching ? <RefreshCw className="animate-spin" size={16}/> : <Search size={16} />}</button>
                   </div>
                </div>
-               <div className="flex-1 overflow-y-auto p-4 space-y-4">
+               <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20 md:pb-4">
                   {researchResults && (
                      <>
                         <div className="bg-white p-4 rounded-lg border border-slate-200">
@@ -1040,15 +1155,43 @@ ${content}
             </div>
           )}
 
-          {/* ... Other Tabs (Thesaurus, Chat, Figures, Refs) would follow similar patterns ... */}
-          {/* For brevity, simplified rendering of critical ones */}
+          {activeTab === 'chat' && (
+             <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+                 <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20 md:pb-4">
+                     {chatMessages.map(msg => (
+                         <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                             <div className={`max-w-[85%] p-3 rounded-lg text-sm ${msg.role === 'user' ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-slate-800'}`}>
+                                 {msg.text}
+                             </div>
+                         </div>
+                     ))}
+                     {isChatting && <div className="text-xs text-slate-400 text-center animate-pulse">AI is thinking...</div>}
+                 </div>
+                 <div className="p-3 bg-white border-t border-slate-200 pb-20 md:pb-3">
+                     <div className="flex gap-2">
+                         <input 
+                             className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500"
+                             placeholder="Ask your tutor..."
+                             value={chatInput}
+                             onChange={(e) => setChatInput(e.target.value)}
+                             onKeyDown={(e) => e.key === 'Enter' && handleChat()}
+                         />
+                         <button onClick={handleChat} disabled={isChatting} className="p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50">
+                             <ArrowRight size={16} />
+                         </button>
+                     </div>
+                 </div>
+             </div>
+          )}
+
+          {/* ... Other Tabs (Thesaurus, Figures, Refs) ... */}
           
           {activeTab === 'thesaurus' && (
              <div className="flex-1 flex flex-col bg-slate-50">
                 <div className="p-4 bg-white border-b border-slate-200">
                    <h3 className="text-sm font-bold text-slate-700">Thesaurus: "{selectedWord}"</h3>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-20 md:pb-4">
                    {isLoadingSynonyms ? <div className="text-center p-4"><RefreshCw className="animate-spin"/></div> : 
                     synonyms.map((word, i) => (
                       <button key={i} onClick={() => editor?.chain().focus().insertContent(word).run()} className="w-full text-left p-3 bg-white rounded-lg border border-slate-200 hover:border-teal-500 text-sm font-medium">{word}</button>
@@ -1058,18 +1201,97 @@ ${content}
           )}
 
           {activeTab === 'references' && (
-             <div className="flex-1 flex flex-col bg-slate-50">
-                 <div className="p-4 bg-white border-b border-slate-200 flex gap-2">
-                    <input className="flex-1 bg-slate-100 border-none rounded-lg px-3 py-2 text-sm" placeholder="Paste DOI..." value={refInput} onChange={(e) => setRefInput(e.target.value)} />
-                    {/* Add Reference Logic (Trigger via parent or context if needed, kept simple here) */}
+             <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+                 <div className="p-4 bg-white border-b border-slate-200 flex gap-4">
+                    <button 
+                        onClick={() => setCitationTab('library')}
+                        className={`text-xs font-bold pb-2 border-b-2 transition-colors flex-1 ${citationTab === 'library' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}
+                    >
+                        My Library
+                    </button>
+                    <button 
+                        onClick={() => setCitationTab('search')}
+                        className={`text-xs font-bold pb-2 border-b-2 transition-colors flex-1 ${citationTab === 'search' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}
+                    >
+                        Find Sources
+                    </button>
                  </div>
-                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {references.map((ref) => (
-                       <div key={ref.id} className="bg-white p-3 rounded-lg border border-slate-200 text-xs">
-                           <p className="font-medium">{ref.formatted}</p>
-                           <button onClick={() => editor?.chain().focus().insertContent(` (${ref.author}, ${ref.year}) `).run()} className="mt-2 text-purple-600 font-bold">Cite</button>
-                       </div>
-                    ))}
+                 
+                 <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20 md:pb-4">
+                    {citationTab === 'library' && (
+                        <>
+                            {libraryItems.length === 0 ? (
+                                <div className="text-center py-8 text-slate-400">
+                                    <BookOpen size={24} className="mx-auto mb-2 opacity-30"/>
+                                    <p className="text-xs">Your library is empty.</p>
+                                </div>
+                            ) : (
+                                libraryItems.map((ref) => (
+                                    <div key={ref.id} className="bg-white p-3 rounded-lg border border-slate-200 text-xs shadow-sm hover:border-teal-300 group">
+                                        <div className="font-bold text-slate-800 line-clamp-2 mb-1">{ref.title}</div>
+                                        <p className="text-slate-500 mb-2">{ref.author}, {ref.year}</p>
+                                        <div className="flex justify-end">
+                                            <button onClick={() => insertQuickCitation(ref)} className="px-2 py-1 bg-purple-50 text-purple-700 rounded font-bold hover:bg-purple-100 flex items-center gap-1">
+                                                <Quote size={10}/> Cite
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </>
+                    )}
+
+                    {citationTab === 'search' && (
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <input 
+                                    className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-8 py-2 text-xs focus:ring-1 focus:ring-teal-500 outline-none" 
+                                    placeholder="Search papers (e.g. 'AI adoption')..." 
+                                    value={citationSearchQuery} 
+                                    onChange={(e) => setCitationSearchQuery(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCitationSearch()} 
+                                />
+                                <Search size={12} className="absolute left-2.5 top-2.5 text-slate-400" />
+                                <button 
+                                    onClick={handleCitationSearch} 
+                                    className="absolute right-2 top-2 text-teal-600 hover:text-teal-800 disabled:opacity-50"
+                                    disabled={isSearchingCitations}
+                                >
+                                    {isSearchingCitations ? <RefreshCw className="animate-spin" size={12}/> : <ArrowRight size={12} />}
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                {citationSearchResults.map((res, i) => (
+                                    <div key={i} className="bg-white p-3 rounded-lg border border-slate-200 text-xs shadow-sm hover:border-teal-300">
+                                        <div className="font-bold text-slate-800 line-clamp-2 mb-1">{res.title}</div>
+                                        <div className="flex items-center gap-1 text-slate-500 mb-1">
+                                            <Globe size={10} /> {res.source}
+                                        </div>
+                                        <p className="text-slate-500 mb-3">{res.author}, {res.year}</p>
+                                        
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => insertQuickCitation(res)} 
+                                                className="flex-1 py-1.5 bg-slate-50 text-slate-700 rounded font-medium hover:bg-slate-100 border border-slate-200"
+                                            >
+                                                Cite
+                                            </button>
+                                            <button 
+                                                onClick={() => handleAddReferenceToLibrary(res)} 
+                                                className="flex-1 py-1.5 bg-teal-50 text-teal-700 rounded font-bold hover:bg-teal-100 flex items-center justify-center gap-1"
+                                            >
+                                                <BookmarkPlus size={12}/> Add
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {citationSearchResults.length === 0 && !isSearchingCitations && citationSearchQuery && (
+                                    <div className="text-center py-4 text-slate-400 text-xs">No results found.</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                  </div>
              </div>
           )}
@@ -1126,6 +1348,22 @@ ${content}
                    </div>
                 </div>
               )}
+           </div>
+        </div>
+      )}
+
+      {/* Export Modal (Mobile) */}
+      {isExportMenuOpen && window.innerWidth < 768 && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setIsExportMenuOpen(false)}>
+           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-4 animate-scale-in" onClick={e => e.stopPropagation()}>
+               <h3 className="text-lg font-bold text-slate-800 mb-4">Document Actions</h3>
+               <div className="space-y-2">
+                  <button onClick={handleExportPDF} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg flex items-center gap-3 font-medium text-slate-700"><FileType size={20}/> Export as PDF</button>
+                  <button onClick={handleExportDOCX} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg flex items-center gap-3 font-medium text-slate-700"><FileText size={20}/> Export as Word</button>
+                  <button onClick={handleExportLaTeX} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg flex items-center gap-3 font-medium text-slate-700"><FileCode size={20}/> Export as LaTeX</button>
+                  <div className="h-px bg-slate-100 my-1"></div>
+                  <button onClick={() => { setIsFocusMode(true); setIsExportMenuOpen(false); }} className="w-full text-left p-3 hover:bg-slate-50 rounded-lg flex items-center gap-3 font-medium text-slate-700"><Maximize2 size={20}/> Enter Focus Mode</button>
+               </div>
            </div>
         </div>
       )}

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { GoogleGenAI, Type } from "@google/genai";
@@ -10,6 +11,39 @@ function getAIClient() {
     throw new Error("API_KEY environment variable is missing.");
   }
   return new GoogleGenAI({ apiKey });
+}
+
+export async function filterDocumentsAction(query: string, docsMetadata: any[]): Promise<string[]> {
+  try {
+    const ai = getAIClient();
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `
+        You are an intelligent document search engine.
+        User Query: "${query}"
+        
+        Available Documents (Metadata):
+        ${JSON.stringify(docsMetadata)}
+        
+        Instructions:
+        1. Interpret the user's intent (e.g., "finished docs", "drafts from last week", "about physics", "low progress").
+        2. Select the IDs of documents that match this intent based on their title, status, progress, or date.
+        3. Return strictly a JSON array of strings (the IDs). Example: ["doc-1", "doc-5"].
+        4. If no documents match, return [].
+      `,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+    return JSON.parse(response.text || '[]');
+  } catch (error) {
+    console.error("AI Filter Error", error);
+    return [];
+  }
 }
 
 export async function analyzeTextAction(text: string, universityName: string): Promise<any[]> {
@@ -313,6 +347,59 @@ export async function parseReferenceAction(rawText: string): Promise<Reference |
     return null;
   } catch (e) {
     return null;
+  }
+}
+
+export async function findCitationAction(query: string): Promise<Reference[]> {
+  try {
+    const ai = getAIClient();
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `
+        Search for academic papers, books, or articles matching this query: "${query}".
+        Identify the top 3 most relevant academic sources.
+        
+        For each source, extract:
+        - author (e.g. "Smith, J.")
+        - year (e.g. "2023")
+        - title (Full Title)
+        - source (Journal Name or Publisher)
+        - formatted (APA 7th citation string)
+        - url (if available from search results)
+
+        Return ONLY a raw JSON array. Do not use Markdown code blocks.
+        Example: [{"author": "...", "year": "...", "title": "...", "source": "...", "formatted": "...", "url": "..."}]
+      `,
+      config: {
+        tools: [{ googleSearch: {} }],
+      }
+    });
+
+    let text = response.text || '[]';
+    // Clean up potential markdown formatting
+    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    // Find array in text if there's extra chatter
+    const arrayMatch = text.match(/\[.*\]/s);
+    if (arrayMatch) text = arrayMatch[0];
+
+    const results = JSON.parse(text);
+    if (Array.isArray(results)) {
+        return results.map((r: any, i: number) => ({
+            id: `web-${Date.now()}-${i}`,
+            raw: query,
+            author: r.author || 'Unknown',
+            year: r.year || 'n.d.',
+            title: r.title || 'Untitled',
+            source: r.source || 'Unknown Source',
+            formatted: r.formatted || `${r.author}. (${r.year}). ${r.title}.`,
+            url: r.url
+        }));
+    }
+    return [];
+  } catch (error) {
+    console.error("Find Citation Error", error);
+    return [];
   }
 }
 
@@ -638,5 +725,61 @@ export async function runGenericToolAction(toolId: string, input: string): Promi
     return response.text || "No response generated.";
   } catch (error) {
     return "An error occurred while running the tool.";
+  }
+}
+
+// --- Semantic Scholar API Proxy Actions ---
+
+export async function searchSemanticPapersAction(query: string, limit: number = 10): Promise<any[]> {
+  const API_BASE = "https://api.semanticscholar.org/graph/v1";
+  try {
+    const fields = "paperId,title,authors,year,venue,citationCount,influentialCitationCount,tldr,url,openAccessPdf";
+    const response = await fetch(`${API_BASE}/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=${fields}`, {
+        headers: {
+            'User-Agent': 'ThesisAI/1.0'
+        }
+    });
+    
+    if (!response.ok) {
+        console.error(`Semantic Scholar API Error: ${response.status} ${response.statusText}`);
+        return [];
+    }
+    
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error("Semantic Scholar Search Action Error:", error);
+    return [];
+  }
+}
+
+export async function getSemanticPaperDetailsAction(paperId: string): Promise<any | null> {
+  const API_BASE = "https://api.semanticscholar.org/graph/v1";
+  try {
+    const fields = "paperId,title,authors,year,venue,citationCount,influentialCitationCount,abstract,tldr,url,openAccessPdf";
+    const response = await fetch(`${API_BASE}/paper/${paperId}?fields=${fields}`);
+    
+    if (!response.ok) return null;
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Semantic Scholar Details Action Error:", error);
+    return null;
+  }
+}
+
+export async function getSemanticRecommendationsAction(paperId: string, limit: number = 5): Promise<any[]> {
+  const API_BASE = "https://api.semanticscholar.org/graph/v1";
+  try {
+    const fields = "paperId,title,authors,year,venue,citationCount";
+    const response = await fetch(`${API_BASE}/paper/${paperId}/recommendations?limit=${limit}&fields=${fields}`);
+    
+    if (!response.ok) return [];
+    
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error("Semantic Scholar Recs Action Error:", error);
+    return [];
   }
 }

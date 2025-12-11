@@ -1,9 +1,13 @@
 
 import React, { useState } from 'react';
-import { User, Bell, CreditCard, LogOut, Link, Fingerprint, Library, Cloud, CheckCircle2, Loader2, ExternalLink } from 'lucide-react';
+import { User, Bell, CreditCard, LogOut, Link, Fingerprint, Library, Cloud, CheckCircle2, Loader2, ExternalLink, BookOpen, FileText } from 'lucide-react';
 
-export const Settings: React.FC = () => {
-    const [activeTab, setActiveTab] = useState('integrations'); // Defaulting to integrations for this demo context
+interface SettingsProps {
+    onSignOut?: () => void;
+}
+
+export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
+    const [activeTab, setActiveTab] = useState('integrations'); 
     const [connectingId, setConnectingId] = useState<string | null>(null);
 
     const [userIntegrations, setUserIntegrations] = useState([
@@ -15,9 +19,16 @@ export const Settings: React.FC = () => {
             ]
         },
         {
-            category: 'Research & Storage',
+            category: 'Research Libraries',
             items: [
-                { name: 'Zotero', id: 'zotero', desc: 'Sync your personal reference library.', connected: false, icon: Library, url: 'https://www.zotero.org/user/login' },
+                { name: 'Zotero', id: 'zotero', desc: 'Sync your personal Zotero library collections.', connected: false, icon: Library, url: 'https://www.zotero.org/user/login' },
+                { name: 'Mendeley', id: 'mendeley', desc: 'Import references from your Mendeley account.', connected: false, icon: BookOpen, url: 'https://www.mendeley.com/login' },
+                { name: 'Semantic Scholar', id: 'semanticscholar', desc: 'Enable AI-powered paper recommendations.', connected: true, icon: FileText, url: 'https://www.semanticscholar.org/' },
+            ]
+        },
+        {
+            category: 'Storage & Backup',
+            items: [
                 { name: 'Google Drive', id: 'gdrive', desc: 'Auto-backup thesis drafts to your personal cloud.', connected: true, icon: Cloud, url: 'https://accounts.google.com/signin' },
             ]
         }
@@ -51,9 +62,10 @@ export const Settings: React.FC = () => {
             
             setConnectingId(null);
             
-            // Show success feedback (In a real app, this would be a toast)
-            // Using a simple alert for simulation feedback if notification system isn't global
-            // but relying on visual state change is better UI.
+            // In a real app, we would store tokens securely here
+            if (serviceId === 'zotero' || serviceId === 'mendeley') {
+                localStorage.setItem(`${serviceId}_connected`, 'true');
+            }
         }, 2500);
     };
 
@@ -65,6 +77,7 @@ export const Settings: React.FC = () => {
                     item.id === serviceId ? { ...item, connected: false } : item
                 )
             })));
+            localStorage.removeItem(`${serviceId}_connected`);
         }
     };
 
@@ -105,7 +118,10 @@ export const Settings: React.FC = () => {
                     </button>
                     
                     <div className="pt-8 mt-8 border-t border-slate-200">
-                         <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50">
+                         <button 
+                            onClick={onSignOut}
+                            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50 transition-colors"
+                         >
                             <LogOut size={18} /> <span>Sign Out</span>
                         </button>
                     </div>

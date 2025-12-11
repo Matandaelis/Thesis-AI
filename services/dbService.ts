@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { Document, LibraryItem } from '@/types';
 
@@ -61,6 +62,24 @@ export const dbService = {
       status: data.status,
       progress: data.progress
     };
+  },
+
+  async renameDocument(id: string, title: string): Promise<void> {
+    const { error } = await supabase
+      .from('documents')
+      .update({ title: title, last_modified: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) console.error('Error renaming doc:', error);
+  },
+
+  async deleteDocument(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', id);
+
+    if (error) console.error('Error deleting doc:', error);
   },
 
   // --- Library ---

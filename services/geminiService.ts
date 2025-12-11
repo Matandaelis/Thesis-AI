@@ -21,7 +21,9 @@ import {
   generateAnalyticsReportAction,
   generateStudyScheduleAction,
   generateCitationAction,
-  runGenericToolAction
+  runGenericToolAction,
+  findCitationAction,
+  filterDocumentsAction
 } from "@/app/actions";
 
 // This file now acts as a bridge to Server Actions
@@ -47,5 +49,7 @@ export const GeminiService = {
   generateAnalyticsReport: generateAnalyticsReportAction,
   generateStudySchedule: generateStudyScheduleAction,
   generateCitation: generateCitationAction,
-  runGenericTool: runGenericToolAction
+  runGenericTool: runGenericToolAction,
+  findCitation: findCitationAction,
+  filterDocuments: filterDocumentsAction
 };

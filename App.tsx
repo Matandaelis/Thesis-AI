@@ -13,7 +13,7 @@ import { Pricing } from './components/Pricing';
 import { ResearchLibrary } from './components/ResearchLibrary';
 import { Calendar } from './components/Calendar';
 import { LandingPage } from './components/LandingPage';
-import { Document, University, View, LibraryItem } from './types';
+import { Document, University, View, LibraryItem, LibraryFolder } from './types';
 import { Construction, Menu, GraduationCap, LifeBuoy, Loader2 } from 'lucide-react';
 import { dbService } from './services/dbService';
 
@@ -28,6 +28,11 @@ export const App: React.FC = () => {
 
   // Data State
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
+  const [libraryFolders, setLibraryFolders] = useState<LibraryFolder[]>([
+    { id: 'f1', name: 'Thesis Chapter 1', count: 0 },
+    { id: 'f2', name: 'Methodology', count: 0 },
+    { id: 'f3', name: 'AI Ethics', count: 0 },
+  ]);
   const [documents, setDocuments] = useState<Document[]>([]);
 
   // Load Data from Supabase on Mount
@@ -220,6 +225,7 @@ export const App: React.FC = () => {
               onSave={handleSaveDocument}
               onBack={() => setCurrentView(previousView)}
               libraryItems={libraryItems}
+              onAddToLibrary={handleLibraryUpdate}
             />
           )}
 
@@ -247,6 +253,8 @@ export const App: React.FC = () => {
              <ResearchLibrary 
                 items={libraryItems}
                 setItems={handleLibraryUpdate}
+                folders={libraryFolders}
+                setFolders={setLibraryFolders}
              />
           )}
           
