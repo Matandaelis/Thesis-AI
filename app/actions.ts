@@ -1,14 +1,20 @@
-
 'use server';
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate, Journal } from "@/types";
 
-// Initialize server-side only
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to initialize AI client lazily to avoid build-time errors
+function getAIClient() {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY environment variable is missing.");
+  }
+  return new GoogleGenAI({ apiKey });
+}
 
 export async function analyzeTextAction(text: string, universityName: string): Promise<any[]> {
   if (!text || text.length < 10) return [];
+  const ai = getAIClient();
 
   const prompt = `
     You are an expert academic thesis editor specializing in Kenyan university standards (e.g., ${universityName}). 
@@ -60,6 +66,7 @@ export async function analyzeTextAction(text: string, universityName: string): P
 
 export async function deepCritiqueAction(text: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
@@ -85,6 +92,7 @@ export async function deepCritiqueAction(text: string): Promise<string> {
 
 export async function researchTopicAction(query: string): Promise<ResearchResponse> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Find academic sources and recent information about: ${query}. Summarize key findings suitable for a thesis literature review.`,
@@ -111,6 +119,7 @@ export async function researchTopicAction(query: string): Promise<ResearchRespon
 
 export async function checkUniversityUpdatesAction(universityName: string): Promise<UniversityUpdate[]> {
   try {
+      const ai = getAIClient();
       const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: `
@@ -158,6 +167,7 @@ export async function checkUniversityUpdatesAction(universityName: string): Prom
 
 export async function chatWithTutorAction(message: string, context: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
@@ -186,6 +196,7 @@ export async function rewriteTextAction(text: string, mode: 'paraphrase' | 'expa
   }
 
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `${instruction}\n\nText: "${text}"`
@@ -198,6 +209,7 @@ export async function rewriteTextAction(text: string, mode: 'paraphrase' | 'expa
 
 export async function continueWritingAction(context: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `
@@ -216,6 +228,7 @@ export async function continueWritingAction(context: string): Promise<string> {
 
 export async function getSynonymsAction(word: string, context: string): Promise<string[]> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Provide 5 academic synonyms for the word "${word}" appropriate for the following context: "${context}". Return a JSON array of strings.`,
@@ -235,6 +248,7 @@ export async function getSynonymsAction(word: string, context: string): Promise<
 
 export async function generateChartDataAction(description: string): Promise<ChartData | null> {
   try {
+    const ai = getAIClient();
     const prompt = `
       Create a valid JSON object to render a chart using 'recharts' based on this description: "${description}".
       The JSON must adhere to this exact schema:
@@ -269,6 +283,7 @@ export async function generateChartDataAction(description: string): Promise<Char
 
 export async function parseReferenceAction(rawText: string): Promise<Reference | null> {
   try {
+    const ai = getAIClient();
     const prompt = `
       Parse this citation/reference text into structured data.
       Text: "${rawText}"
@@ -303,6 +318,7 @@ export async function parseReferenceAction(rawText: string): Promise<Reference |
 
 export async function generateSectionContentAction(title: string, thesisTitle: string, context: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `
@@ -327,6 +343,7 @@ export async function generateSectionContentAction(title: string, thesisTitle: s
 
 export async function generateThesisOutlineAction(topic: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `
@@ -344,6 +361,7 @@ export async function generateThesisOutlineAction(topic: string): Promise<string
 
 export async function generateGrantProposalAction(thesisAbstract: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
@@ -363,6 +381,7 @@ export async function generateGrantProposalAction(thesisAbstract: string): Promi
 
 export async function generateSlidesOutlineAction(content: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `
@@ -379,6 +398,7 @@ export async function generateSlidesOutlineAction(content: string): Promise<stri
 
 export async function matchJournalsAction(abstract: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `
@@ -394,6 +414,7 @@ export async function matchJournalsAction(abstract: string): Promise<string> {
 
 export async function findJournalsAction(abstract: string): Promise<Journal[]> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `
@@ -434,6 +455,7 @@ export async function findJournalsAction(abstract: string): Promise<Journal[]> {
 
 export async function generateLiteratureMatrixAction(topic: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
@@ -449,6 +471,7 @@ export async function generateLiteratureMatrixAction(topic: string): Promise<str
 
 export async function checkScientificPaperAction(content: string): Promise<string> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview', 
       contents: `
@@ -474,6 +497,7 @@ export async function checkScientificPaperAction(content: string): Promise<strin
 
 export async function generateAnalyticsReportAction(docsSummary: string): Promise<any> {
   try {
+      const ai = getAIClient();
       const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: `
@@ -513,6 +537,7 @@ export async function generateAnalyticsReportAction(docsSummary: string): Promis
 
 export async function generateStudyScheduleAction(topic: string, startDate: string): Promise<any[]> {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
@@ -559,6 +584,7 @@ export async function generateCitationAction(details: string): Promise<string> {
   `;
 
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
@@ -601,6 +627,7 @@ export async function runGenericToolAction(toolId: string, input: string): Promi
   }
 
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model,
       contents: prompt,

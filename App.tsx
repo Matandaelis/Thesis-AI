@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { DocumentsList } from './components/DocumentsList';
@@ -14,88 +14,46 @@ import { ResearchLibrary } from './components/ResearchLibrary';
 import { Calendar } from './components/Calendar';
 import { LandingPage } from './components/LandingPage';
 import { Document, University, View, LibraryItem } from './types';
-import { Construction, Menu, GraduationCap, LifeBuoy } from 'lucide-react';
+import { Construction, Menu, GraduationCap, LifeBuoy, Loader2 } from 'lucide-react';
+import { dbService } from './services/dbService';
 
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [previousView, setPreviousView] = useState<View>(View.DASHBOARD);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
   const [activeUniversity, setActiveUniversity] = useState<University | null>(null);
-  // Use the comprehensive list from Templates as the source of truth
   const [universities, setUniversities] = useState<University[]>(KENYAN_UNIVERSITIES);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Shared Library Items State
-  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([
-    {
-      id: '1',
-      type: 'journal',
-      author: 'Njogi, A. & Kamau, P.',
-      year: '2023',
-      title: 'Adoption of AI in East African Healthcare Systems',
-      source: 'Journal of African Health Sciences',
-      formatted: 'Njogi, A. & Kamau, P. (2023). Adoption of AI in East African Healthcare Systems. Journal of African Health Sciences.',
-      raw: '',
-      tags: ['AI', 'Healthcare', 'Kenya'],
-      readStatus: 'reading',
-      isFavorite: true,
-      addedDate: new Date('2023-09-10'),
-      folderId: 'f1',
-      pdfUrl: '#'
-    },
-    {
-      id: '2',
-      type: 'report',
-      author: 'World Bank Group',
-      year: '2022',
-      title: 'Digital Economy Blueprint for Africa',
-      source: 'World Bank Publications',
-      formatted: 'World Bank Group. (2022). Digital Economy Blueprint for Africa. World Bank Publications.',
-      raw: '',
-      tags: ['Economics', 'Policy'],
-      readStatus: 'unread',
-      isFavorite: false,
-      addedDate: new Date('2023-10-05'),
-      folderId: 'f1'
-    },
-    {
-      id: '3',
-      type: 'book',
-      author: 'Smith, J.',
-      year: '2021',
-      title: 'Research Methods for Social Sciences',
-      source: 'Oxford University Press',
-      formatted: 'Smith, J. (2021). Research Methods for Social Sciences. Oxford University Press.',
-      raw: '',
-      tags: ['Methodology', 'Qualitative'],
-      readStatus: 'read',
-      isFavorite: true,
-      addedDate: new Date('2023-08-15'),
-      folderId: 'f2'
-    }
-  ]);
+  // Data State
+  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
 
-  // Mock Data
-  const [documents, setDocuments] = useState<Document[]>([
-    {
-      id: '1',
-      title: 'The Impact of Mobile Lending Apps on Rural Economy',
-      universityId: 'uon',
-      content: 'Chapter 1: Introduction\n\n1.1 Background of the Study\n\nFinancial inclusion has been a major topic of discussion in developing economies...',
-      lastModified: new Date('2023-10-10'),
-      status: 'Draft',
-      progress: 45
-    },
-    {
-      id: '2',
-      title: 'AI Adoption in Kenyan Healthcare Systems',
-      universityId: 'strath',
-      content: 'Abstract\n\nThis study explores the readiness of Level 5 hospitals in adopting AI-driven diagnostic tools...',
-      lastModified: new Date('2023-10-12'),
-      status: 'Review',
-      progress: 10
+  // Load Data from Supabase on Mount
+  useEffect(() => {
+    if (currentView !== View.LANDING) {
+      loadData();
     }
-  ]);
+  }, [currentView]);
+
+  const loadData = async () => {
+    // Only show loader if we have no data yet
+    if (documents.length === 0) setIsLoading(true);
+    
+    try {
+      const [docs, items] = await Promise.all([
+        dbService.getDocuments(),
+        dbService.getLibrary()
+      ]);
+      setDocuments(docs);
+      setLibraryItems(items);
+    } catch (error) {
+      console.error("Failed to load data", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleOpenDocument = (doc: Document) => {
     setPreviousView(currentView === View.DOCUMENTS ? View.DOCUMENTS : View.DASHBOARD);
@@ -109,32 +67,74 @@ export const App: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
-  const handleCreateDocument = (uni: University) => {
-    // If it's a new custom university (not in list), add it to state so it persists
+  const handleCreateDocument = async (uni: University) => {
     if (!universities.find(u => u.id === uni.id)) {
         setUniversities(prev => [...prev, uni]);
     }
 
     const newDoc: Document = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(), // Use standard UUID
       title: 'Untitled Thesis',
       universityId: uni.id,
-      content: `Title Page\n\n[Insert Title]\n\nA Thesis Submitted in Partial Fulfillment for the Degree of Master of Science at ${uni.name}\n\n${new Date().getFullYear()}`,
+      content: `<h1>Title Page</h1><p>[Insert Title]</p><p>A Thesis Submitted in Partial Fulfillment for the Degree of Master of Science at ${uni.name}</p><p>${new Date().getFullYear()}</p>`,
       lastModified: new Date(),
       status: 'Draft',
       progress: 0
     };
+
+    // Optimistic UI update
     setDocuments([newDoc, ...documents]);
     setCurrentDoc(newDoc);
     setActiveUniversity(uni);
     setPreviousView(View.DOCUMENTS); 
     setCurrentView(View.EDITOR);
     setIsSidebarOpen(false);
+
+    // Persist to DB
+    await dbService.saveDocument(newDoc);
   };
 
-  const handleSaveDocument = (updatedDoc: Document) => {
+  const handleSaveDocument = async (updatedDoc: Document) => {
+    // Optimistic Update
     setDocuments(prev => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
     setCurrentDoc(updatedDoc);
+    
+    // Persist
+    await dbService.saveDocument(updatedDoc);
+  };
+
+  // Wrapper for Library Updates to ensure persistence
+  const handleLibraryUpdate = (newItems: LibraryItem[] | ((prev: LibraryItem[]) => LibraryItem[])) => {
+      // Resolve functional state update if necessary
+      const resolvedNewItems = typeof newItems === 'function' ? newItems(libraryItems) : newItems;
+      
+      // Determine diff (Naive approach: check length or ids)
+      // For simplicity in this demo: 
+      // 1. If length increased, we added something.
+      // 2. If length decreased, we deleted.
+      // 3. Otherwise we likely updated a status.
+      
+      const isAdd = resolvedNewItems.length > libraryItems.length;
+      const isDelete = resolvedNewItems.length < libraryItems.length;
+
+      if (isAdd) {
+         // Find the new item
+         const added = resolvedNewItems.find(n => !libraryItems.some(o => o.id === n.id));
+         if (added) dbService.addToLibrary(added);
+      } else if (isDelete) {
+         const deleted = libraryItems.find(o => !resolvedNewItems.some(n => n.id === o.id));
+         if (deleted) dbService.deleteLibraryItem(deleted.id);
+      } else {
+         // Update - Find changed item (usually just read status or favorite)
+         resolvedNewItems.forEach(n => {
+             const old = libraryItems.find(o => o.id === n.id);
+             if (old && (old.readStatus !== n.readStatus || old.isFavorite !== n.isFavorite)) {
+                 dbService.updateLibraryItem(n.id, { readStatus: n.readStatus, isFavorite: n.isFavorite });
+             }
+         });
+      }
+
+      setLibraryItems(resolvedNewItems);
   };
 
   // Simple Placeholder for new features
@@ -159,9 +159,19 @@ export const App: React.FC = () => {
     return <LandingPage onGetStarted={() => setCurrentView(View.DASHBOARD)} />;
   }
 
+  if (isLoading && documents.length === 0) {
+      return (
+          <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+              <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="animate-spin text-teal-600" size={32} />
+                  <p className="text-sm font-medium text-slate-500">Loading your thesis...</p>
+              </div>
+          </div>
+      );
+  }
+
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      {/* Sidebar is always present in DOM but hidden on mobile via CSS unless open */}
       {currentView !== View.EDITOR && (
         <Sidebar 
           currentView={currentView} 
@@ -172,7 +182,6 @@ export const App: React.FC = () => {
       )}
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Mobile Header */}
         {currentView !== View.EDITOR && (
           <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm z-30 shrink-0">
              <div className="flex items-center gap-2">
@@ -237,7 +246,7 @@ export const App: React.FC = () => {
           {currentView === View.RESEARCH && (
              <ResearchLibrary 
                 items={libraryItems}
-                setItems={setLibraryItems}
+                setItems={handleLibraryUpdate}
              />
           )}
           
@@ -252,7 +261,6 @@ export const App: React.FC = () => {
              />
           )}
 
-          {/* New Views Placeholders */}
           {currentView === View.COMMUNITY && (
              <PlaceholderView 
                title="Scholar Community" 
