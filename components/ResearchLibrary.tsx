@@ -1120,7 +1120,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                             {!isZoteroConnected && !isMendeleyConnected && (
                                 <div className="p-4 bg-orange-50 text-orange-700 rounded-lg text-sm mb-4 flex gap-2">
                                     <Globe size={16} className="shrink-0 mt-0.5" />
-                                    No libraries connected. Go to Settings > Integrations to connect Zotero or Mendeley.
+                                    No libraries connected. Go to Settings &gt; Integrations to connect Zotero or Mendeley.
                                 </div>
                             )}
                             {isZoteroConnected && (
