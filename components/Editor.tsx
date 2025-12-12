@@ -28,7 +28,7 @@ import {
   Strikethrough, Code, Image as ImageIcon, FileText, Settings, Link as LinkIcon,
   ListOrdered, ShieldCheck, AlertTriangle, Video, MicOff, Send,
   Table as TableIcon, Columns, Rows, Scissors, Palette, Undo, Redo, Layout, GraduationCap,
-  Menu, PanelLeft, PanelRight
+  Menu, PanelLeft, PanelRight, ChevronUp
 } from 'lucide-react';
 import { Document, AISuggestion, University, ChatMessage, ResearchResponse, Reference, ChartData, LibraryItem, ValidationReport, ValidationIssue } from '../types';
 import { GeminiService } from '../services/geminiService';
@@ -70,6 +70,7 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
   
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isStructureOpen, setIsStructureOpen] = useState(true);
+  const [isMobileToolbarOpen, setIsMobileToolbarOpen] = useState(true); // Default open, toggleable on mobile
   
   // AI Features State
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
@@ -495,64 +496,78 @@ export const Editor: React.FC<EditorProps> = ({ document: thesisDoc, university,
                             <img key={c.id} src={c.avatar} className="w-6 h-6 rounded-full border border-white" title={c.name} />
                         ))}
                     </div>
+                    {/* Mobile Toolbar Toggle */}
+                    <button 
+                        onClick={() => setIsMobileToolbarOpen(!isMobileToolbarOpen)}
+                        className={`p-1.5 rounded md:hidden transition-colors ${isMobileToolbarOpen ? 'bg-slate-100 text-teal-600' : 'text-slate-500'}`}
+                        title="Toggle Formatting"
+                    >
+                        <Type size={18} />
+                    </button>
+
                     <button onClick={() => setIsFocusMode(true)} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 hidden md:block" title="Focus Mode"><Maximize2 size={16}/></button>
                     <button onClick={() => onSave({...thesisDoc, content: editor.getHTML()})} className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"><Save size={14}/><span className="hidden md:inline">Save</span></button>
                 </div>
             </div>
 
             {/* Row 2: Formatting Ribbon (Horizontally Scrollable) */}
-            <div className="flex items-center px-2 py-1 gap-1 overflow-x-auto no-scrollbar bg-slate-50/50 w-full">
-                {/* History */}
-                <div className="flex items-center gap-0.5 border-r border-slate-300 pr-2 mr-2 shrink-0">
-                    <button onClick={undo} disabled={!editor.can().undo()} className="p-1.5 hover:bg-slate-200 rounded disabled:opacity-30"><Undo size={16}/></button>
-                    <button onClick={redo} disabled={!editor.can().redo()} className="p-1.5 hover:bg-slate-200 rounded disabled:opacity-30"><Redo size={16}/></button>
-                </div>
+            <div className={`
+                overflow-hidden transition-all duration-300 ease-in-out bg-slate-50/50 w-full border-b border-slate-200
+                ${isMobileToolbarOpen ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 border-none'} md:max-h-12 md:opacity-100
+            `}>
+                <div className="flex items-center px-2 py-1 gap-1 overflow-x-auto no-scrollbar w-full h-full">
+                    {/* History */}
+                    <div className="flex items-center gap-0.5 border-r border-slate-300 pr-2 mr-2 shrink-0">
+                        <button onClick={undo} disabled={!editor.can().undo()} className="p-1.5 hover:bg-slate-200 rounded disabled:opacity-30"><Undo size={16}/></button>
+                        <button onClick={redo} disabled={!editor.can().redo()} className="p-1.5 hover:bg-slate-200 rounded disabled:opacity-30"><Redo size={16}/></button>
+                    </div>
 
-                {/* Typography */}
-                <div className="flex items-center gap-1 border-r border-slate-300 pr-2 mr-2 shrink-0">
-                    <select 
-                        className="bg-transparent text-sm border border-slate-200 rounded px-1 md:px-2 py-1 w-24 md:w-32 focus:outline-none focus:border-teal-500 cursor-pointer text-xs md:text-sm"
-                        onChange={(e) => setFontFamily(e.target.value)}
-                        value={editor.getAttributes('textStyle').fontFamily || 'Inter'}
-                    >
-                        <option value="Inter">Inter</option>
-                        <option value="Times New Roman">Times New Roman</option>
-                        <option value="Arial">Arial</option>
-                        <option value="Calibri">Calibri</option>
-                        <option value="Georgia">Georgia</option>
-                    </select>
-                    
-                    <button onClick={toggleBold} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('bold') ? 'bg-slate-200 text-black' : 'text-slate-600'}`}><Bold size={16}/></button>
-                    <button onClick={toggleItalic} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('italic') ? 'bg-slate-200 text-black' : 'text-slate-600'}`}><Italic size={16}/></button>
-                    <button onClick={toggleUnderline} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('underline') ? 'bg-slate-200 text-black' : 'text-slate-600'}`}><UnderlineIcon size={16}/></button>
-                    <button onClick={toggleHighlight} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('highlight') ? 'bg-yellow-200 text-black' : 'text-slate-600'}`}><Highlighter size={16}/></button>
-                </div>
+                    {/* Typography */}
+                    <div className="flex items-center gap-1 border-r border-slate-300 pr-2 mr-2 shrink-0">
+                        <select 
+                            className="bg-transparent text-sm border border-slate-200 rounded px-1 md:px-2 py-1 w-24 md:w-32 focus:outline-none focus:border-teal-500 cursor-pointer text-xs md:text-sm"
+                            onChange={(e) => setFontFamily(e.target.value)}
+                            value={editor.getAttributes('textStyle').fontFamily || 'Inter'}
+                        >
+                            <option value="Inter">Inter</option>
+                            <option value="Times New Roman">Times</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Calibri">Calibri</option>
+                            <option value="Georgia">Georgia</option>
+                        </select>
+                        
+                        <button onClick={toggleBold} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('bold') ? 'bg-slate-200 text-black' : 'text-slate-600'}`}><Bold size={16}/></button>
+                        <button onClick={toggleItalic} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('italic') ? 'bg-slate-200 text-black' : 'text-slate-600'}`}><Italic size={16}/></button>
+                        <button onClick={toggleUnderline} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('underline') ? 'bg-slate-200 text-black' : 'text-slate-600'}`}><UnderlineIcon size={16}/></button>
+                        <button onClick={toggleHighlight} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('highlight') ? 'bg-yellow-200 text-black' : 'text-slate-600'}`}><Highlighter size={16}/></button>
+                    </div>
 
-                {/* Paragraph */}
-                <div className="flex items-center gap-1 border-r border-slate-300 pr-2 mr-2 shrink-0">
-                    <button onClick={() => setAlign('left')} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive({ textAlign: 'left' }) ? 'bg-slate-200' : ''}`}><AlignLeft size={16}/></button>
-                    <button onClick={() => setAlign('center')} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive({ textAlign: 'center' }) ? 'bg-slate-200' : ''}`}><AlignCenter size={16}/></button>
-                    
-                    <div className="h-6 w-px bg-slate-200 mx-1"></div>
+                    {/* Paragraph */}
+                    <div className="flex items-center gap-1 border-r border-slate-300 pr-2 mr-2 shrink-0">
+                        <button onClick={() => setAlign('left')} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive({ textAlign: 'left' }) ? 'bg-slate-200' : ''}`}><AlignLeft size={16}/></button>
+                        <button onClick={() => setAlign('center')} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive({ textAlign: 'center' }) ? 'bg-slate-200' : ''}`}><AlignCenter size={16}/></button>
+                        
+                        <div className="h-6 w-px bg-slate-200 mx-1"></div>
 
-                    <button onClick={toggleBulletList} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('bulletList') ? 'bg-slate-200' : ''}`}><List size={16}/></button>
-                    <button onClick={toggleOrderedList} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('orderedList') ? 'bg-slate-200' : ''}`}><ListOrdered size={16}/></button>
-                </div>
+                        <button onClick={toggleBulletList} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('bulletList') ? 'bg-slate-200' : ''}`}><List size={16}/></button>
+                        <button onClick={toggleOrderedList} className={`p-1.5 rounded hover:bg-slate-200 ${editor.isActive('orderedList') ? 'bg-slate-200' : ''}`}><ListOrdered size={16}/></button>
+                    </div>
 
-                {/* Insert */}
-                <div className="flex items-center gap-1 border-r border-slate-300 pr-2 mr-2 shrink-0">
-                    <button onClick={insertImage} className="p-1.5 hover:bg-slate-200 rounded text-slate-600" title="Insert Image"><ImageIcon size={16}/></button>
-                    <button onClick={insertLink} className={`p-1.5 hover:bg-slate-200 rounded ${editor.isActive('link') ? 'bg-teal-100 text-teal-700' : 'text-slate-600'}`} title="Insert Link"><LinkIcon size={16}/></button>
-                    <button onClick={insertTable} className="p-1.5 hover:bg-slate-200 rounded text-slate-600" title="Insert Table"><TableIcon size={16}/></button>
-                    <button onClick={() => setCitationModalOpen(true)} className="p-1.5 hover:bg-slate-200 rounded text-slate-600" title="Add Citation"><Quote size={16}/></button>
-                </div>
+                    {/* Insert */}
+                    <div className="flex items-center gap-1 border-r border-slate-300 pr-2 mr-2 shrink-0">
+                        <button onClick={insertImage} className="p-1.5 hover:bg-slate-200 rounded text-slate-600" title="Insert Image"><ImageIcon size={16}/></button>
+                        <button onClick={insertLink} className={`p-1.5 hover:bg-slate-200 rounded ${editor.isActive('link') ? 'bg-teal-100 text-teal-700' : 'text-slate-600'}`} title="Insert Link"><LinkIcon size={16}/></button>
+                        <button onClick={insertTable} className="p-1.5 hover:bg-slate-200 rounded text-slate-600" title="Insert Table"><TableIcon size={16}/></button>
+                        <button onClick={() => setCitationModalOpen(true)} className="p-1.5 hover:bg-slate-200 rounded text-slate-600" title="Add Citation"><Quote size={16}/></button>
+                    </div>
 
-                {/* AI & Tools (Desktop) */}
-                <div className="hidden md:flex items-center gap-2 shrink-0">
-                    <button onClick={() => { setActiveTab('review'); handleAnalyze(); }} className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 text-xs font-bold">
-                        <Sparkles size={14}/> AI Check
-                    </button>
-                    <button onClick={() => setShowFindReplace(!showFindReplace)} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Search size={16}/></button>
+                    {/* AI & Tools (Desktop) */}
+                    <div className="hidden md:flex items-center gap-2 shrink-0">
+                        <button onClick={() => { setActiveTab('review'); handleAnalyze(); }} className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 text-xs font-bold">
+                            <Sparkles size={14}/> AI Check
+                        </button>
+                        <button onClick={() => setShowFindReplace(!showFindReplace)} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Search size={16}/></button>
+                    </div>
                 </div>
             </div>
         </div>

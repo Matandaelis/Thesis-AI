@@ -26,7 +26,7 @@ interface AssistantMessage {
     id: string;
     role: 'user' | 'system';
     content: string;
-    type?: 'text' | 'results' | 'citation';
+    type?: 'text' | 'results' | 'citation' | 'research_result';
     data?: any;
 }
 
@@ -82,7 +82,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
       { 
           id: 'welcome', 
           role: 'system', 
-          content: "Hello! I'm your Research Assistant. I can help you find academic papers or format citations. Try asking 'Find papers on AI in education' or paste a raw citation to format it.",
+          content: "Hello! I'm your Research Assistant. I can help you find academic papers, format citations, or answer research questions using Google Search. Try asking 'What are the latest treatments for malaria?' or 'Find papers on AI in education'.",
           type: 'text'
       }
   ]);
@@ -229,7 +229,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                } else {
                    setAssistantMessages(prev => [...prev, { id: Date.now().toString(), role: 'system', content: "I couldn't find any specific academic papers matching that topic. Try broad terms like 'AI in healthcare'." }]);
                }
-          } else if (lowerInput.includes('format') || lowerInput.split(' ').length > 10) { 
+          } else if (lowerInput.includes('format') || lowerInput.split(' ').length > 10 && !lowerInput.endsWith('?')) { 
                // Format Intent (Explicit or implicit if long text)
                const parsed = await GeminiService.parseReference(userMsg.content);
                if (parsed) {
@@ -244,8 +244,15 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                    setAssistantMessages(prev => [...prev, { id: Date.now().toString(), role: 'system', content: "I couldn't parse that text as a citation. Please ensure it contains author, title, and year." }]);
                }
           } else {
-               // Fallback / Generic Chat
-               setAssistantMessages(prev => [...prev, { id: Date.now().toString(), role: 'system', content: "I'm specialized in finding papers and formatting citations. Try: 'Find papers on climate change' or paste a reference to format it." }]);
+               // Generic Chat with Search Grounding
+               const researchRes = await GeminiService.researchTopic(userMsg.content);
+               setAssistantMessages(prev => [...prev, { 
+                   id: Date.now().toString(), 
+                   role: 'system', 
+                   content: researchRes.content,
+                   type: 'research_result', // New type to handle links
+                   data: researchRes.links
+               }]);
           }
       } catch (e) {
           console.error(e);
@@ -1028,6 +1035,24 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                                                 <Plus size={12} /> Save to Library
                                             </button>
                                         </div>
+                                    ) : msg.type === 'research_result' ? (
+                                        <div>
+                                            <p className="mb-2 whitespace-pre-wrap">{msg.content}</p>
+                                            {msg.data && msg.data.length > 0 && (
+                                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                                    <p className="text-xs font-bold text-slate-500 mb-1">Sources:</p>
+                                                    <ul className="list-disc pl-3 text-xs text-indigo-600 space-y-1">
+                                                        {msg.data.map((link: any, i: number) => (
+                                                            <li key={i}>
+                                                                <a href={link.uri} target="_blank" rel="noopener noreferrer" className="hover:underline line-clamp-1">
+                                                                    {link.title || link.uri}
+                                                                </a>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
                                     ) : (
                                         msg.content
                                     )}
@@ -1047,7 +1072,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                         <div className="relative">
                             <input 
                                 className="w-full border border-slate-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white transition-colors"
-                                placeholder="Find papers or format text..."
+                                placeholder="Find papers, check facts, or format text..."
                                 value={assistantInput}
                                 onChange={(e) => setAssistantInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleAssistantSubmit()}

@@ -239,7 +239,7 @@ export const Toolkit: React.FC = () => {
     { id: 't13', name: 'Reference Formatter', description: 'Format raw refs to APA 7th.', icon: BookOpen, category: 'Research', status: 'Active', action: () => openTool('t13') },
     { id: 't14', name: 'Survey Generator', description: 'Create questions for data collection.', icon: CheckSquare, category: 'Research', status: 'Active', action: () => openTool('t14') },
     { id: 't15', name: 'Ethics Checklist', description: 'Ensure IRB compliance.', icon: CheckSquare, category: 'Research', status: 'Active', action: () => openTool('t15') },
-    { id: 't16', name: 'Research Assistant Chat', description: 'Ask general research questions.', icon: FileText, category: 'Research', status: 'Active', action: () => openTool('t16') },
+    { id: 't16', name: 'Research Assistant Chat', description: 'Ask questions with live Google Search.', icon: FileText, category: 'Research', status: 'Active', action: () => openTool('t16') },
     { id: 't17', name: 'Keyword Extractor', description: 'SEO for your publication.', icon: Globe, category: 'Research', status: 'Active', action: () => openTool('t17') },
     
     // --- Career & Output ---

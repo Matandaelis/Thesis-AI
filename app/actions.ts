@@ -805,7 +805,10 @@ export async function runGenericToolAction(toolId: string, input: string): Promi
     case 't13': prompt = `Format the following raw reference information into perfect APA 7th Edition citations:\n\n"${input}"`; break;
     case 't14': prompt = `Create a 10-item questionnaire/survey for a study on: "${input}". Ensure questions are neutral and academically sound.`; break;
     case 't15': prompt = `Generate a research ethics checklist for a study involving: "${input}". Highlight potential risks and required consents.`; break;
-    case 't16': prompt = `You are a research assistant. Answer the user's request based on general academic knowledge or refine the following text:\n\n"${input}"`; break;
+    case 't16': 
+        prompt = `You are a helpful research assistant. Answer the user's request accurately using Google Search to find the most recent information. Summarize key findings.\n\nRequest: "${input}"`; 
+        toolsConfig = [{ googleSearch: {} }]; 
+        break;
     case 't17': prompt = `Extract 5-10 high-impact SEO keywords and academic descriptors from this text:\n\n"${input}"`; break;
     case 't22': prompt = `Find upcoming academic conferences (2024-2025) relevant to this topic: "${input}". Include dates and locations if found.`; toolsConfig = [{ googleSearch: {} }]; break;
     case 't23': prompt = `Extract key research skills, methodologies, and subject matter expertise from this thesis abstract for a generic CV/Resume:\n\n"${input}"`; break;
@@ -825,7 +828,22 @@ export async function runGenericToolAction(toolId: string, input: string): Promi
         thinkingConfig: thinkingConfig
       }
     });
-    return response.text || "No response generated.";
+    
+    let text = response.text || "No response generated.";
+
+    // Append Grounding Sources if present
+    if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+        const chunks = response.candidates[0].groundingMetadata.groundingChunks;
+        const links = chunks
+            .map((c: any) => c.web ? `[${c.web.title}](${c.web.uri})` : null)
+            .filter((l: any) => l !== null);
+        
+        if (links.length > 0) {
+            text += "\n\n**Sources:**\n" + links.map((l: string) => `- ${l}`).join("\n");
+        }
+    }
+
+    return text;
   } catch (error) {
     return "An error occurred while running the tool.";
   }
