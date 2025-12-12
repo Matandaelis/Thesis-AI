@@ -1,11 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+// Prisma has been removed in favor of Supabase.
+// This file is kept as a placeholder to prevent import errors if it's referenced elsewhere, 
+// though all references should have been removed.
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: ['query'],
-  });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+export const prisma = null;
