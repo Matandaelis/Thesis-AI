@@ -1,9 +1,4 @@
-
-import { 
-  searchSemanticPapersAction, 
-  getSemanticPaperDetailsAction, 
-  getSemanticRecommendationsAction 
-} from "@/app/actions";
+const SEMANTIC_BASE_URL = "https://api.semanticscholar.org/graph/v1";
 
 export interface SemanticPaper {
   paperId: string;
@@ -21,14 +16,40 @@ export interface SemanticPaper {
 
 export const SemanticScholarService = {
   async searchPapers(query: string, limit = 10): Promise<SemanticPaper[]> {
-    return await searchSemanticPapersAction(query, limit);
+    try {
+      const url = `${SEMANTIC_BASE_URL}/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=paperId,title,authors,year,venue,citationCount,influentialCitationCount,openAccessPdf,tldr,url`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.data || [];
+    } catch (e) {
+      console.error("Semantic Scholar Search Error", e);
+      return [];
+    }
   },
 
   async getPaperDetails(paperId: string): Promise<SemanticPaper | null> {
-    return await getSemanticPaperDetailsAction(paperId);
+    try {
+      const url = `${SEMANTIC_BASE_URL}/paper/${paperId}?fields=paperId,title,authors,year,venue,citationCount,influentialCitationCount,abstract,tldr,url,openAccessPdf`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      console.error("Semantic Scholar Details Error", e);
+      return null;
+    }
   },
 
   async getRecommendations(paperId: string, limit = 5): Promise<SemanticPaper[]> {
-    return await getSemanticRecommendationsAction(paperId, limit);
+    try {
+      const url = `${SEMANTIC_BASE_URL}/paper/${paperId}/recommendations?limit=${limit}&fields=paperId,title,authors,year,venue`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.data ? data.data.map((d: any) => d.recommendedPaper) : [];
+    } catch (e) {
+      console.error("Semantic Scholar Recommendations Error", e);
+      return [];
+    }
   }
 };

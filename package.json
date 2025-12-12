@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@google/genai": "*",
@@ -20,8 +20,16 @@
     "@tiptap/extension-underline": "^2.2.4",
     "@tiptap/extension-highlight": "^2.2.4",
     "@tiptap/extension-typography": "^2.2.4",
+    "@tiptap/extension-image": "^2.2.4",
+    "@tiptap/extension-link": "^2.2.4",
+    "@tiptap/extension-table": "^2.2.4",
+    "@tiptap/extension-table-row": "^2.2.4",
+    "@tiptap/extension-table-cell": "^2.2.4",
+    "@tiptap/extension-table-header": "^2.2.4",
+    "@tiptap/extension-text-style": "^2.2.4",
+    "@tiptap/extension-color": "^2.2.4",
+    "@tiptap/extension-font-family": "^2.2.4",
     "lucide-react": "^0.344.0",
-    "next": "14.1.0",
     "paperlib-api": "^0.1.11",
     "react": "^18",
     "react-dom": "^18",
@@ -33,10 +41,12 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
     "typescript": "^5",
+    "vite": "^5.2.0",
     "@tailwindcss/typography": "^0.5.10"
   }
 }
