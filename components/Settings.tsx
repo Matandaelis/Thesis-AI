@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { User, Bell, CreditCard, LogOut, Link, Fingerprint, Library, Cloud, CheckCircle2, Loader2, ExternalLink, BookOpen, FileText } from 'lucide-react';
+import { User, Bell, CreditCard, LogOut, Link, Fingerprint, Library, Cloud, CheckCircle2, Loader2, ExternalLink, BookOpen, FileText, Activity, X } from 'lucide-react';
+import { GeminiService } from '../services/geminiService';
 
 interface SettingsProps {
     onSignOut?: () => void;
@@ -9,6 +10,8 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
     const [activeTab, setActiveTab] = useState('integrations'); 
     const [connectingId, setConnectingId] = useState<string | null>(null);
+    const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [testMessage, setTestMessage] = useState('');
 
     const [userIntegrations, setUserIntegrations] = useState([
         {
@@ -81,9 +84,24 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
         }
     };
 
+    const handleTestConnection = async () => {
+        setTestStatus('loading');
+        const result = await GeminiService.testConnection();
+        setTestStatus(result.success ? 'success' : 'error');
+        setTestMessage(result.message);
+    };
+
     const connectedCount = userIntegrations.reduce((acc, group) => 
         acc + group.items.filter(i => i.connected).length, 0
     );
+
+    // Safe environment variable check for display
+    const metaEnv = (import.meta as any).env || {};
+    const processEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
+    const keyStatus = metaEnv.VITE_API_KEY ? 'Present (VITE_API_KEY detected)' : 
+                      metaEnv.VITE_GEMINI_API_KEY ? 'Present (VITE_GEMINI_API_KEY detected)' : 
+                      processEnv.API_KEY ? 'Present (process.env.API_KEY detected)' : 
+                      'Not Detected';
 
     return (
         <div className="p-4 md:p-8 max-w-4xl mx-auto animate-fade-in">
@@ -115,6 +133,12 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
                         className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'integrations' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
                     >
                         <Link size={18} /> <span>Integrations</span>
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('diagnostics')}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'diagnostics' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
+                    >
+                        <Activity size={18} /> <span>Diagnostics</span>
                     </button>
                     
                     <div className="pt-8 mt-8 border-t border-slate-200">
@@ -269,6 +293,44 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'diagnostics' && (
+                        <div className="space-y-6 animate-fade-in">
+                            <h2 className="text-xl font-bold text-slate-800">System Diagnostics</h2>
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-6">
+                                <h3 className="font-bold text-slate-700 mb-2">Gemini API Connection</h3>
+                                <p className="text-sm text-slate-500 mb-4">Verify that your API key is correctly configured and the application can reach Google's servers.</p>
+                                
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        onClick={handleTestConnection} 
+                                        disabled={testStatus === 'loading'}
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {testStatus === 'loading' && <Loader2 size={16} className="animate-spin" />}
+                                        {testStatus === 'loading' ? 'Testing...' : 'Test Connection'}
+                                    </button>
+                                    
+                                    {testStatus === 'success' && (
+                                        <span className="text-green-600 text-sm font-medium flex items-center gap-2">
+                                            <CheckCircle2 size={16} /> {testMessage}
+                                        </span>
+                                    )}
+                                    
+                                    {testStatus === 'error' && (
+                                        <span className="text-red-600 text-sm font-medium flex items-center gap-2">
+                                            <X size={16} /> {testMessage}
+                                        </span>
+                                    )}
+                                </div>
+                                
+                                <div className="mt-4 p-3 bg-white border border-slate-200 rounded text-xs font-mono text-slate-600 break-all">
+                                    <strong>Key Status: </strong>
+                                    {keyStatus}
+                                </div>
                             </div>
                         </div>
                     )}

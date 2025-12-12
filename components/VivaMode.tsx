@@ -100,7 +100,11 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
     const handleConnect = async () => {
         setStatus('connecting');
         try {
-            const apiKey = process.env.API_KEY;
+            // Updated to prefer VITE_ prefix for Cloudflare Pages compatibility
+            const metaEnv = (import.meta as any).env || {};
+            const processEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
+            const apiKey = metaEnv.VITE_API_KEY || metaEnv.VITE_GEMINI_API_KEY || processEnv.API_KEY;
+            
             if (!apiKey) throw new Error("API Key missing");
 
             const ai = new GoogleGenAI({ apiKey });

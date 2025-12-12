@@ -1,11 +1,38 @@
+
 import { createClient } from '@supabase/supabase-js';
 
-// Fallback to provided credentials if environment variables are missing to prevent runtime errors
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://iyougiigvvdnbdfcexkz.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5b3VnaWlndnZkbmJkZmNleGt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MTI0MjQsImV4cCI6MjA4MDk4ODQyNH0.VED3NUp1dcPYhQbRSthtKyj0pGnIb9fbp89wBJymFUw";
+// Helper to safely access environment variables across different build systems
+const getEnv = (key: string) => {
+  // 1. Try Vite's import.meta.env
+  try {
+    const meta = (import.meta as any);
+    if (meta && meta.env && meta.env[key]) return meta.env[key];
+  } catch (e) {}
+
+  // 2. Try standard process.env
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
+  } catch (e) {}
+
+  // 3. Try window.process.env (manual polyfill)
+  try {
+    if (typeof window !== 'undefined' && (window as any).process && (window as any).process.env && (window as any).process.env[key]) {
+        return (window as any).process.env[key];
+    }
+  } catch (e) {}
+
+  return '';
+};
+
+// Retrieve environment variables
+const supabaseUrl = getEnv('VITE_SUPABASE_URL') || getEnv('NEXT_PUBLIC_SUPABASE_URL');
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Supabase URL or Anon Key is missing. Please check lib/supabase.ts");
+  console.log("Supabase credentials missing. App will run in local-only mode.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Export null if credentials are missing to prevent invalid connection attempts
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey) 
+  : null;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -18,6 +17,7 @@ import { SynthesisTool } from './components/SynthesisTool';
 import { Document, University, View, LibraryItem, LibraryFolder } from './types';
 import { Construction, Menu, GraduationCap, LifeBuoy, Loader2 } from 'lucide-react';
 import { dbService } from './services/dbService';
+import { GeminiService } from './services/geminiService';
 import { KENYAN_UNIVERSITIES } from './lib/constants';
 
 export const App: React.FC = () => {
@@ -29,6 +29,7 @@ export const App: React.FC = () => {
   const [universities, setUniversities] = useState<University[]>(KENYAN_UNIVERSITIES);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'checking' | 'connected' | 'error'>('checking');
 
   // Data State
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
@@ -38,6 +39,17 @@ export const App: React.FC = () => {
     { id: 'f3', name: 'AI Ethics', count: 0 },
   ]);
   const [documents, setDocuments] = useState<Document[]>([]);
+
+  // Check API Connection on Mount
+  useEffect(() => {
+    const checkApi = async () => {
+      setApiStatus('checking');
+      const result = await GeminiService.testConnection();
+      console.log('Gemini API Status:', result);
+      setApiStatus(result.success ? 'connected' : 'error');
+    };
+    checkApi();
+  }, []);
 
   // Load Data from Supabase on Mount
   useEffect(() => {
@@ -117,6 +129,20 @@ export const App: React.FC = () => {
     
     // Persist
     await dbService.saveDocument(updatedDoc);
+  };
+
+  const handleRenameDocument = async (id: string, newTitle: string) => {
+    const doc = documents.find(d => d.id === id);
+    if (doc) {
+        const updatedDoc = { ...doc, title: newTitle, lastModified: new Date() };
+        setDocuments(prev => prev.map(d => d.id === id ? updatedDoc : d));
+        await dbService.saveDocument(updatedDoc);
+    }
+  };
+
+  const handleDeleteDocument = async (id: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
+    await dbService.deleteDocument(id);
   };
 
   // Wrapper for Library Updates to ensure persistence
@@ -200,6 +226,7 @@ export const App: React.FC = () => {
           onChangeView={setCurrentView} 
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
+          apiStatus={apiStatus}
         />
       )}
 
@@ -228,6 +255,8 @@ export const App: React.FC = () => {
                documents={documents} 
                onOpenDocument={handleOpenDocument}
                onCreateNew={() => setCurrentView(View.TEMPLATES)}
+               onRename={handleRenameDocument}
+               onDelete={handleDeleteDocument}
             />
           )}
 

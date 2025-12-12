@@ -4,14 +4,37 @@ import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate,
 
 // Helper to initialize AI client
 function getAIClient() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  // Check for various environment variable patterns (Vite standard, Process env polyfill)
+  const metaEnv = (import.meta as any).env || {};
+  const processEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
+
+  const apiKey = 
+    metaEnv.VITE_GEMINI_API_KEY || 
+    metaEnv.VITE_API_KEY || 
+    processEnv.GEMINI_API_KEY || 
+    processEnv.API_KEY;
+
   if (!apiKey) {
-    console.warn("GEMINI_API_KEY or API_KEY environment variable is missing.");
+    console.warn("VITE_GEMINI_API_KEY or VITE_API_KEY environment variable is missing.");
   }
   return new GoogleGenAI({ apiKey: apiKey || '' });
 }
 
 export const GeminiService = {
+  testConnection: async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      const ai = getAIClient();
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: 'Reply with "OK" if connected.',
+      });
+      return { success: true, message: response.text || "Connected (No text returned)" };
+    } catch (error: any) {
+      console.error("Gemini Test Error", error);
+      return { success: false, message: error.message || "Connection failed" };
+    }
+  },
+
   embedText: async (text: string): Promise<number[]> => {
     try {
       const ai = getAIClient();

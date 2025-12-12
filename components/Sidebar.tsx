@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, ShoppingBag, Settings, BookOpen, 
@@ -22,9 +21,10 @@ interface SidebarProps {
   onChangeView: (view: View) => void;
   isOpen: boolean;
   onClose: () => void;
+  apiStatus?: 'checking' | 'connected' | 'error';
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isOpen, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isOpen, onClose, apiStatus = 'connected' }) => {
   const [expandedGroups, setExpandedGroups] = useState<string[]>(['My Projects', 'Research Suite']);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -294,7 +294,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
                     alt="User" 
                     className="w-9 h-9 rounded-full border border-slate-600"
                 />
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-slate-800 rounded-full"></div>
+                <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-slate-800 rounded-full transition-colors ${
+                    apiStatus === 'connected' ? 'bg-green-500' : 
+                    apiStatus === 'error' ? 'bg-red-500' : 'bg-amber-500 animate-pulse'
+                }`} title={apiStatus === 'connected' ? 'AI Connected' : apiStatus === 'error' ? 'AI Error' : 'Connecting...'}></div>
              </div>
              <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white truncate">Edwin O.</p>
