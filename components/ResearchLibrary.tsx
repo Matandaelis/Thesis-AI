@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Plus, Filter, Folder, Star, FileText, MoreVertical, 
   Trash2, ExternalLink, BookOpen, Check, X, Tag, Sparkles, Hash, Menu,
   Clock, PenLine, Activity, ArrowUpRight, Globe, DownloadCloud, Quote, Lightbulb, Library,
-  FolderPlus, FolderOpen, Copy
+  FolderPlus, FolderOpen, Copy, Eye, Bot, Send, MessageSquare, ChevronRight, GitGraph
 } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer, ScatterChart, Scatter, ZAxis
 } from 'recharts';
 import { LibraryItem, LibraryFolder, Reference } from '../types';
 import { GeminiService } from '../services/geminiService';
@@ -20,6 +20,14 @@ interface ResearchLibraryProps {
   setItems: React.Dispatch<React.SetStateAction<LibraryItem[]>>;
   folders: LibraryFolder[];
   setFolders: React.Dispatch<React.SetStateAction<LibraryFolder[]>>;
+}
+
+interface AssistantMessage {
+    id: string;
+    role: 'user' | 'system';
+    content: string;
+    type?: 'text' | 'results' | 'citation';
+    data?: any;
 }
 
 export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItems, folders, setFolders }) => {
@@ -40,6 +48,11 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
   const [filterReadStatus, setFilterReadStatus] = useState<'all' | 'read' | 'unread' | 'reading'>('all');
   const [filterType, setFilterType] = useState<'all' | 'journal' | 'book' | 'website' | 'report'>('all');
   
+  // View Style State
+  const [viewStyle, setViewStyle] = useState<string>('Simple');
+  const [showStyleMenu, setShowStyleMenu] = useState(false);
+  const [visualizationMode, setVisualizationMode] = useState<'list' | 'graph'>('list');
+
   // New Item State
   const [newItemInput, setNewItemInput] = useState('');
   const [isParsing, setIsParsing] = useState(false);
@@ -59,14 +72,33 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
   const [activeItemMenu, setActiveItemMenu] = useState<string | null>(null);
   
   // Citation Copy State
-  const [copyStyle, setCopyStyle] = useState('APA 7th');
   const [openCopyMenuId, setOpenCopyMenuId] = useState<string | null>(null);
+
+  // AI Assistant State
+  const [showAssistant, setShowAssistant] = useState(false);
+  const [assistantInput, setAssistantInput] = useState('');
+  const [isAssistantLoading, setIsAssistantLoading] = useState(false);
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([
+      { 
+          id: 'welcome', 
+          role: 'system', 
+          content: "Hello! I'm your Research Assistant. I can help you find academic papers or format citations. Try asking 'Find papers on AI in education' or paste a raw citation to format it.",
+          type: 'text'
+      }
+  ]);
+  const assistantScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
       // Check local storage for mocked connection status
       setIsZoteroConnected(localStorage.getItem('zotero_connected') === 'true');
       setIsMendeleyConnected(localStorage.getItem('mendeley_connected') === 'true');
   }, []);
+
+  useEffect(() => {
+      if (assistantScrollRef.current) {
+          assistantScrollRef.current.scrollTop = assistantScrollRef.current.scrollHeight;
+      }
+  }, [assistantMessages, showAssistant]);
 
   const filteredItems = items.filter(item => {
     // 1. Context (Folder) Match
@@ -94,6 +126,18 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
     
     return matchesContext && matchesSearch && matchesPdf && matchesStatus && matchesType;
   });
+
+  // Mock Graph Data for Visualization
+  const getGraphData = () => {
+      // Create random scattered points to simulate a citation cluster
+      return filteredItems.map((item, index) => ({
+          x: (parseInt(item.year) || 2020) + (Math.random() * 0.5),
+          y: Math.random() * 100, // Simulate citation impact
+          z: 100, // Size
+          name: item.title,
+          id: item.id
+      }));
+  };
 
   const handleToggleFavorite = (id: string) => {
     setItems(prev => prev.map(item => 
@@ -151,6 +195,88 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
       alert(`Copied as ${style}!`);
   };
 
+  // --- Assistant Logic ---
+  const handleAssistantSubmit = async () => {
+      if (!assistantInput.trim()) return;
+      
+      const userMsg: AssistantMessage = { 
+          id: Date.now().toString(), 
+          role: 'user', 
+          content: assistantInput,
+          type: 'text'
+      };
+      
+      setAssistantMessages(prev => [...prev, userMsg]);
+      setAssistantInput('');
+      setIsAssistantLoading(true);
+
+      const lowerInput = userMsg.content.toLowerCase();
+      
+      try {
+          if (lowerInput.startsWith('find') || lowerInput.includes('search') || lowerInput.includes('papers about') || lowerInput.includes('articles on')) {
+               // Search Intent
+               const query = userMsg.content.replace(/find|search|papers|about|articles|on|for/gi, '').trim();
+               const results = await GeminiService.findCitation(query); // Uses Google Search Grounding
+               
+               if (results.length > 0) {
+                   setAssistantMessages(prev => [...prev, { 
+                       id: Date.now().toString(),
+                       role: 'system', 
+                       content: `I found ${results.length} relevant sources for "${query}":`,
+                       type: 'results',
+                       data: results 
+                   }]);
+               } else {
+                   setAssistantMessages(prev => [...prev, { id: Date.now().toString(), role: 'system', content: "I couldn't find any specific academic papers matching that topic. Try broad terms like 'AI in healthcare'." }]);
+               }
+          } else if (lowerInput.includes('format') || lowerInput.split(' ').length > 10) { 
+               // Format Intent (Explicit or implicit if long text)
+               const parsed = await GeminiService.parseReference(userMsg.content);
+               if (parsed) {
+                   setAssistantMessages(prev => [...prev, {
+                       id: Date.now().toString(),
+                       role: 'system',
+                       content: "Here is the structured reference data:",
+                       type: 'citation',
+                       data: parsed
+                   }]);
+               } else {
+                   setAssistantMessages(prev => [...prev, { id: Date.now().toString(), role: 'system', content: "I couldn't parse that text as a citation. Please ensure it contains author, title, and year." }]);
+               }
+          } else {
+               // Fallback / Generic Chat
+               setAssistantMessages(prev => [...prev, { id: Date.now().toString(), role: 'system', content: "I'm specialized in finding papers and formatting citations. Try: 'Find papers on climate change' or paste a reference to format it." }]);
+          }
+      } catch (e) {
+          console.error(e);
+          setAssistantMessages(prev => [...prev, { id: Date.now().toString(), role: 'system', content: "Sorry, I encountered an error while processing your request." }]);
+      } finally {
+          setIsAssistantLoading(false);
+      }
+  };
+
+  const handleAddFromAssistant = (ref: any) => {
+      const newItem: LibraryItem = {
+          id: Date.now().toString(),
+          raw: ref.raw || ref.title,
+          title: ref.title || 'Untitled',
+          author: ref.author || 'Unknown',
+          year: ref.year || 'n.d.',
+          source: ref.source || 'Unknown Source',
+          formatted: ref.formatted || `${ref.author}. (${ref.year}). ${ref.title}.`,
+          type: 'journal',
+          tags: ['AI Assistant'],
+          pdfUrl: ref.url || ref.pdfUrl,
+          readStatus: 'unread',
+          isFavorite: false,
+          addedDate: new Date(),
+          folderId: activeFolder === 'favorites' || activeFolder === 'reading' || activeFolder === 'all' ? undefined : activeFolder
+      };
+      setItems(prev => [newItem, ...prev]);
+      // Optional: Feedback toast
+  };
+
+  // ... (Existing Logic for Add Modal, Metrics, etc. kept same) ...
   const handleViewMetrics = async (item: LibraryItem) => {
       setViewingMetrics(item);
       setLoadingMetrics(true);
@@ -161,7 +287,6 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
       const doi = doiMatch ? doiMatch[0] : (item.raw.includes('10.') ? item.raw : null);
 
       try {
-         // Attempt Semantic Scholar details first if we have a title match or DOI
          let semanticData = null;
          if (doi) {
              const results = await SemanticScholarService.searchPapers(doi, 1);
@@ -174,27 +299,21 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
          }
 
          if (semanticData) {
-             // Get Recs
              const recs = await SemanticScholarService.getRecommendations(semanticData.paperId);
              setRelatedPapers(recs);
-             
-             // Construct metrics from Semantic Data
              setMetricsData({
                  incoming: semanticData.citationCount,
-                 outgoing: 0, // Semantic API separate call
+                 outgoing: 0,
                  influential: semanticData.influentialCitationCount,
                  tldr: semanticData.tldr?.text,
                  source: 'Semantic Scholar'
              });
          } else if (doi) {
-             // Fallback to OpenCitations
              const [incoming, outgoing, recent] = await Promise.all([
                  OpenCitationsService.getCitationCount(doi),
                  OpenCitationsService.getReferenceCount(doi),
                  OpenCitationsService.getIncomingCitations(doi, 50)
              ]);
-             
-             // Process for chart
              const yearMap: Record<string, number> = {};
              recent.forEach((c: any) => {
                  if (c.creation) {
@@ -236,9 +355,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
 
   const handleAddSearchResult = (res: any) => {
       let newItem: LibraryItem;
-      
       if (searchProvider === 'semantic') {
-          // Semantic Paper format
           newItem = {
               id: Date.now().toString(),
               raw: res.paperId,
@@ -257,11 +374,9 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
               notes: res.tldr?.text ? `TLDR: ${res.tldr.text}` : ''
           };
       } else if (searchProvider === 'crossref') {
-          // CrossRef Paper format
           const authors = res.author ? res.author.map((a: any) => `${a.family}, ${a.given?.[0]}.`).join('; ') : 'Unknown';
           const year = res.issued?.['date-parts']?.[0]?.[0]?.toString() || 'n.d.';
           const journal = res['container-title']?.[0] || res.publisher || 'CrossRef';
-          
           newItem = {
               id: Date.now().toString(),
               raw: res.DOI || res.URL,
@@ -279,7 +394,6 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
               folderId: activeFolder === 'favorites' || activeFolder === 'reading' || activeFolder === 'all' ? undefined : activeFolder
           };
       } else {
-          // Gemini Reference format
           newItem = {
               ...res,
               id: Date.now().toString(),
@@ -291,14 +405,12 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
               folderId: activeFolder === 'favorites' || activeFolder === 'reading' || activeFolder === 'all' ? undefined : activeFolder
           };
       }
-      
       setItems([newItem, ...items]);
   };
 
   const handleImportLibrary = (source: 'zotero' | 'mendeley') => {
       setIsParsing(true);
       setTimeout(() => {
-          // Mock Data
           const mockImports: LibraryItem[] = [
               {
                   id: `imp-${Date.now()}-1`,
@@ -340,20 +452,16 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
   const handleAddItem = async () => {
     if(!newItemInput) return;
     setIsParsing(true);
-    
     try {
         let newItem: LibraryItem | null = null;
         const isDoiInput = newItemInput.match(/^(doi:)?10\.\d{4,9}\/[-._;()/:a-zA-Z0-9]+$/i);
-        
         if (addMethod === 'doi' || isDoiInput) {
-            // Priority 1: Try CrossRef
             const crData = await CitationService.fetchByDOI(newItemInput);
             if (crData) {
                 const authors = crData.author ? crData.author.map(a => `${a.family}, ${a.given?.[0]}.`).join('; ') : 'Unknown Author';
                 const year = crData.issued?.['date-parts']?.[0]?.[0]?.toString() || 'n.d.';
                 const journal = crData['container-title']?.[0] || crData.publisher || 'Unknown Source';
-                const citations = await OpenCitationsService.getCitationCount(newItemInput); // Enrich with citation count
-
+                const citations = await OpenCitationsService.getCitationCount(newItemInput);
                 newItem = {
                     id: Date.now().toString(),
                     raw: newItemInput,
@@ -370,12 +478,10 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                     folderId: activeFolder === 'favorites' || activeFolder === 'reading' || activeFolder === 'all' ? undefined : activeFolder
                 };
             } else {
-                // Priority 2: Fallback to OpenCitations
                 const metadata = await OpenCitationsService.getMetadata(newItemInput);
                 if (metadata) {
                      const year = metadata.pub_date ? metadata.pub_date.substring(0, 4) : 'n.d.';
                      const citations = await OpenCitationsService.getCitationCount(newItemInput);
-    
                      newItem = {
                          id: Date.now().toString(),
                          raw: newItemInput,
@@ -394,7 +500,6 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                 }
             }
         }
-
         if (!newItem && addMethod === 'manual') {
             const parsed = await GeminiService.parseReference(newItemInput);
             if(parsed) {
@@ -410,7 +515,6 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
                 };
             }
         }
-
         if(newItem) {
             setItems([newItem, ...items]);
             setNewItemInput('');
@@ -427,7 +531,7 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
   };
 
   return (
-    <div className="flex h-full animate-fade-in bg-slate-50 relative overflow-hidden" onClick={() => { setActiveItemMenu(null); setOpenCopyMenuId(null); }}>
+    <div className="flex h-full animate-fade-in bg-slate-50 relative overflow-hidden" onClick={() => { setActiveItemMenu(null); setOpenCopyMenuId(null); setShowStyleMenu(false); }}>
       
       {/* Mobile Overlay */}
       {isMobileSidebarOpen && (
@@ -537,234 +641,428 @@ export const ResearchLibrary: React.FC<ResearchLibraryProps> = ({ items, setItem
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden w-full">
+      <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
         
         {/* Toolbar */}
-        <div className="h-auto py-3 md:py-0 md:h-16 border-b border-slate-200 bg-white flex flex-col md:flex-row items-stretch md:items-center justify-between px-4 md:px-6 shrink-0 z-10 gap-3">
-           <div className="flex items-center gap-3 w-full md:w-auto">
-              <button onClick={() => setIsMobileSidebarOpen(true)} className="md:hidden text-slate-500 hover:text-slate-700">
-                  <Menu size={24} />
-              </button>
-              <div className="relative w-full md:w-96">
-                <input 
-                    type="text" 
-                    placeholder="Search authors, titles, tags..." 
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-              </div>
+        <div className="bg-white border-b border-slate-200 p-4 shrink-0 z-10 space-y-3 shadow-sm">
+           <div className="flex flex-col md:flex-row gap-3 justify-between">
+               <div className="flex items-center gap-3 w-full md:flex-1">
+                  <button onClick={() => setIsMobileSidebarOpen(true)} className="md:hidden text-slate-500 hover:text-slate-700">
+                      <Menu size={24} />
+                  </button>
+                  <div className="relative flex-1 max-w-lg">
+                    <input 
+                        type="text" 
+                        placeholder="Search library..." 
+                        className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <Search className="absolute left-3 top-3 text-slate-400" size={16} />
+                    {searchQuery && (
+                        <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
+                            <X size={16} />
+                        </button>
+                    )}
+                  </div>
+               </div>
+
+               <div className="flex items-center justify-between md:justify-end gap-3">
+                  
+                  {/* View Mode Toggle */}
+                  <div className="flex bg-slate-100 rounded-lg p-1">
+                      <button 
+                        onClick={() => setVisualizationMode('list')}
+                        className={`p-1.5 rounded-md transition-colors ${visualizationMode === 'list' ? 'bg-white shadow text-teal-700' : 'text-slate-500 hover:text-slate-700'}`}
+                        title="List View"
+                      >
+                          <BookOpen size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setVisualizationMode('graph')}
+                        className={`p-1.5 rounded-md transition-colors ${visualizationMode === 'graph' ? 'bg-white shadow text-teal-700' : 'text-slate-500 hover:text-slate-700'}`}
+                        title="Citation Graph"
+                      >
+                          <GitGraph size={16} />
+                      </button>
+                  </div>
+
+                  {/* Style View Toggle */}
+                  <div className="relative">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setShowStyleMenu(!showStyleMenu); }}
+                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
+                      >
+                          <Eye size={16} />
+                          <span>View: {viewStyle}</span>
+                      </button>
+                      {showStyleMenu && (
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1 z-50 animate-fade-in-down">
+                              <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Citation Style</div>
+                              {['Simple', 'APA 7th', 'MLA 9', 'Harvard', 'Chicago', 'IEEE'].map(style => (
+                                  <button
+                                    key={style}
+                                    onClick={() => { setViewStyle(style); setShowStyleMenu(false); }}
+                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 ${viewStyle === style ? 'text-teal-600 font-bold' : 'text-slate-700'}`}
+                                  >
+                                      {style}
+                                  </button>
+                              ))}
+                          </div>
+                      )}
+                  </div>
+
+                  <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all ${
+                        showFilters || (filterReadStatus !== 'all' || filterHasPdf || filterType !== 'all')
+                        ? 'bg-teal-50 text-teal-700 border-teal-200' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                     <Filter size={16} /> 
+                     <span className="hidden sm:inline">Filters</span>
+                     {(filterReadStatus !== 'all' || filterHasPdf || filterType !== 'all') && (
+                        <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                     )}
+                  </button>
+                  <button 
+                    onClick={() => setShowAssistant(!showAssistant)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all ${
+                        showAssistant
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                     <Bot size={16} /> <span className="hidden sm:inline">AI Assistant</span>
+                  </button>
+                  <button 
+                    onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-900/10 transition-all whitespace-nowrap"
+                  >
+                     <Plus size={18} /> <span className="hidden sm:inline">Add</span>
+                  </button>
+               </div>
            </div>
 
-           <div className="flex items-center justify-end gap-3">
-              <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${showFilters ? 'bg-slate-100 text-teal-700 border-teal-200' : 'text-slate-600 hover:bg-slate-50 border-slate-200'}`}
-              >
-                 <Filter size={16} /> <span className="hidden sm:inline">Filter</span>
-                 {(filterReadStatus !== 'all' || filterHasPdf || filterType !== 'all') && (
-                    <span className="w-2 h-2 rounded-full bg-teal-500"></span>
-                 )}
-              </button>
-              <button 
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-bold shadow-sm transition-colors whitespace-nowrap"
-              >
-                 <Plus size={18} /> <span className="hidden sm:inline">Add Reference</span><span className="sm:hidden">Add</span>
-              </button>
-           </div>
-        </div>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="bg-slate-50 border-b border-slate-200 p-4 md:px-6 animate-fade-in-down">
-             <div className="flex flex-wrap gap-4 items-center">
-                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Read Status:</span>
+           {/* Expandable Filter Panel */}
+           {showFilters && (
+              <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-down">
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Read Status</label>
                     <select 
-                      className="bg-white border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:border-teal-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-500"
                       value={filterReadStatus}
                       onChange={(e: any) => setFilterReadStatus(e.target.value)}
                     >
-                       <option value="all">All</option>
+                       <option value="all">Any Status</option>
                        <option value="unread">Unread</option>
-                       <option value="reading">Reading</option>
+                       <option value="reading">Currently Reading</option>
                        <option value="read">Read</option>
                     </select>
                  </div>
-                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Type:</span>
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">Reference Type</label>
                     <select 
-                      className="bg-white border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:border-teal-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-teal-500"
                       value={filterType}
                       onChange={(e: any) => setFilterType(e.target.value)}
                     >
-                       <option value="all">All Types</option>
-                       <option value="journal">Journal</option>
-                       <option value="book">Book</option>
+                       <option value="all">Any Type</option>
+                       <option value="journal">Journal Article</option>
+                       <option value="book">Book / Chapter</option>
                        <option value="website">Website</option>
-                       <option value="report">Report</option>
+                       <option value="report">Report / Thesis</option>
                     </select>
                  </div>
-                 <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                 <div className="flex items-end">
+                    <label className="flex items-center gap-3 w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-100 transition-colors">
                        <input 
                          type="checkbox" 
-                         className="rounded text-teal-600 focus:ring-teal-500"
+                         className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-gray-300"
                          checked={filterHasPdf}
                          onChange={(e) => setFilterHasPdf(e.target.checked)}
                        />
-                       <span>Has PDF</span>
+                       <span className="text-sm font-medium text-slate-700">Has PDF Attached</span>
                     </label>
                  </div>
-                 <button onClick={() => { setFilterReadStatus('all'); setFilterType('all'); setFilterHasPdf(false); }} className="text-xs text-slate-400 hover:text-slate-600 underline">Reset</button>
-             </div>
-          </div>
-        )}
+                 <div className="flex items-end">
+                     <button 
+                        onClick={() => { setFilterReadStatus('all'); setFilterType('all'); setFilterHasPdf(false); }} 
+                        className="w-full py-2 text-sm font-bold text-slate-500 hover:text-slate-700 bg-transparent hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200"
+                     >
+                        Reset Filters
+                     </button>
+                 </div>
+              </div>
+           )}
+        </div>
 
-        {/* References List */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-50">
-           {filteredItems.length === 0 ? (
-             <div className="h-full flex flex-col items-center justify-center text-slate-400 pb-20">
-                <div className="bg-white p-6 rounded-full shadow-sm mb-4">
-                    <BookOpen size={48} className="text-slate-300" />
+        {/* References List & AI Sidebar Wrapper */}
+        <div className="flex-1 flex overflow-hidden">
+            {/* References List */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-50">
+            {visualizationMode === 'graph' ? (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-full p-4 flex flex-col">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <GitGraph className="text-teal-600" size={20} /> Citation Network (Year vs Impact)
+                        </h3>
+                        <p className="text-xs text-slate-500">Visualizing your library timeline.</p>
+                    </div>
+                    <div className="flex-1 w-full min-h-[400px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis type="number" dataKey="x" name="Year" unit="" domain={['auto', 'auto']} tickCount={10} />
+                                <YAxis type="number" dataKey="y" name="Impact" unit="%" />
+                                <ZAxis type="number" dataKey="z" range={[50, 400]} />
+                                <ReTooltip cursor={{ strokeDasharray: '3 3' }} />
+                                <Scatter name="Papers" data={getGraphData()} fill="#0d9488" />
+                            </ScatterChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
-                <h3 className="text-lg font-bold text-slate-700">No references found</h3>
-                <p className="max-w-xs text-center text-sm mt-2">Try adjusting your search or add a new reference to your collection.</p>
-             </div>
-           ) : (
-             filteredItems.map(item => (
-               <div key={item.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
-                  <div className="flex justify-between items-start gap-3">
-                     <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
-                        {/* Icon based on type */}
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                            item.pdfUrl ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                           {item.pdfUrl ? <FileText size={20} /> : <BookOpen size={20} />}
-                        </div>
+            ) : filteredItems.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 pb-20">
+                    <div className="bg-white p-6 rounded-full shadow-sm mb-4">
+                        <BookOpen size={48} className="text-slate-300" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-700">No references found</h3>
+                    <p className="max-w-xs text-center text-sm mt-2">Try adjusting your search or add a new reference to your collection.</p>
+                </div>
+            ) : (
+                filteredItems.map(item => (
+                <div key={item.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
+                    <div className="flex justify-between items-start gap-3">
                         
-                        <div className="flex-1 min-w-0">
-                           <h3 className="font-bold text-slate-800 text-base md:text-lg leading-tight mb-1 truncate">{item.title}</h3>
-                           <p className="text-sm text-slate-600 line-clamp-2">
-                              <span className="font-medium text-slate-900">{item.author}</span> • {item.year} • <span className="italic">{item.source}</span>
-                           </p>
-                           
-                           <div className="flex flex-wrap items-center gap-2 mt-3">
-                              {/* Status Chip */}
-                              <button 
-                                onClick={() => handleStatusChange(item.id, item.readStatus === 'read' ? 'unread' : item.readStatus === 'unread' ? 'reading' : 'read')}
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity ${
-                                  item.readStatus === 'read' ? 'bg-green-100 text-green-700' : 
-                                  item.readStatus === 'reading' ? 'bg-blue-100 text-blue-700' : 
-                                  'bg-slate-100 text-slate-500'
-                                }`}
-                              >
-                                {item.readStatus}
-                              </button>
-
-                              <span className="flex items-center gap-1 text-[10px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full border border-slate-100 uppercase">
-                                 {item.type}
-                              </span>
-
-                              {/* Tags */}
-                              {item.tags.map(tag => (
-                                <span key={tag} className="flex items-center gap-1 text-[10px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full border border-slate-100">
-                                   <Tag size={10} /> {tag}
-                                </span>
-                              ))}
-
-                              {/* PDF Link */}
-                              {item.pdfUrl && item.pdfUrl !== '#' && (
-                                <span className="flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium">
-                                   <FileText size={10} /> PDF
-                                </span>
-                              )}
-                           </div>
-                        </div>
-                     </div>
-
-                     <div className="flex flex-col gap-1 md:gap-2 shrink-0">
-                        <button 
-                          onClick={() => handleToggleFavorite(item.id)}
-                          className={`p-2 rounded-full transition-colors ${item.isFavorite ? 'text-amber-400 bg-amber-50' : 'text-slate-300 hover:bg-slate-50 hover:text-slate-500'}`}
-                        >
-                           <Star size={18} fill={item.isFavorite ? 'currentColor' : 'none'} />
-                        </button>
-                        <div className="relative group/menu">
-                           <button 
-                             onClick={(e) => { e.stopPropagation(); setActiveItemMenu(activeItemMenu === item.id ? null : item.id); }}
-                             className={`p-2 text-slate-300 hover:text-slate-600 rounded-full hover:bg-slate-50 ${activeItemMenu === item.id ? 'bg-slate-100 text-slate-600' : ''}`}
-                           >
-                              <MoreVertical size={18} />
-                           </button>
-                           {/* Click Menu */}
-                           {activeItemMenu === item.id && (
-                             <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-100 rounded-lg shadow-xl py-1 z-20 animate-fade-in-down">
-                                <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><PenLine size={14}/> Edit</button>
+                        {/* Citation Content Area */}
+                        {viewStyle !== 'Simple' ? (
+                            <div className="flex-1 min-w-0 pr-4">
+                                {/* Formatted Citation View */}
+                                <div className="font-serif text-slate-800 text-sm md:text-base leading-relaxed pl-3 border-l-4 border-teal-500 bg-slate-50 p-3 rounded-r-lg">
+                                    {CitationService.formatCitation(item, viewStyle)}
+                                </div>
+                                <div className="flex gap-2 mt-2 ml-1">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{viewStyle}</span>
+                                    {item.pdfUrl && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">PDF</span>}
+                                </div>
+                            </div>
+                        ) : (
+                            /* Default Metadata View */
+                            <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
+                                {/* Icon based on type */}
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                                    item.pdfUrl ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                {item.pdfUrl ? <FileText size={20} /> : <BookOpen size={20} />}
+                                </div>
                                 
-                                {/* Move Submenu Logic */}
-                                <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Move to Collection</div>
-                                <div className="max-h-32 overflow-y-auto">
+                                <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-slate-800 text-base md:text-lg leading-tight mb-1 truncate">{item.title}</h3>
+                                <p className="text-sm text-slate-600 line-clamp-2">
+                                    <span className="font-medium text-slate-900">{item.author}</span> • {item.year} • <span className="italic">{item.source}</span>
+                                </p>
+                                
+                                <div className="flex flex-wrap items-center gap-2 mt-3">
+                                    {/* Status Chip */}
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); handleMoveItem(item.id, 'all'); }}
-                                        className={`w-full text-left px-4 py-1.5 text-sm hover:bg-slate-50 flex items-center gap-2 ${!item.folderId ? 'text-teal-600 font-bold' : 'text-slate-600'}`}
+                                        onClick={() => handleStatusChange(item.id, item.readStatus === 'read' ? 'unread' : item.readStatus === 'unread' ? 'reading' : 'read')}
+                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity ${
+                                        item.readStatus === 'read' ? 'bg-green-100 text-green-700' : 
+                                        item.readStatus === 'reading' ? 'bg-blue-100 text-blue-700' : 
+                                        'bg-slate-100 text-slate-500'
+                                        }`}
                                     >
-                                        <FolderOpen size={14}/> All References
+                                        {item.readStatus}
                                     </button>
-                                    {folders.map(folder => (
+
+                                    <span className="flex items-center gap-1 text-[10px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full border border-slate-100 uppercase">
+                                        {item.type}
+                                    </span>
+
+                                    {/* Tags */}
+                                    {item.tags.map(tag => (
+                                        <span key={tag} className="flex items-center gap-1 text-[10px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full border border-slate-100">
+                                        <Tag size={10} /> {tag}
+                                        </span>
+                                    ))}
+
+                                    {/* PDF Link */}
+                                    {item.pdfUrl && item.pdfUrl !== '#' && (
+                                        <span className="flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium">
+                                        <FileText size={10} /> PDF
+                                        </span>
+                                    )}
+                                </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-1 md:gap-2 shrink-0">
+                            <button 
+                            onClick={() => handleToggleFavorite(item.id)}
+                            className={`p-2 rounded-full transition-colors ${item.isFavorite ? 'text-amber-400 bg-amber-50' : 'text-slate-300 hover:bg-slate-50 hover:text-slate-500'}`}
+                            >
+                            <Star size={18} fill={item.isFavorite ? 'currentColor' : 'none'} />
+                            </button>
+                            <div className="relative group/menu">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setActiveItemMenu(activeItemMenu === item.id ? null : item.id); }}
+                                className={`p-2 text-slate-300 hover:text-slate-600 rounded-full hover:bg-slate-50 ${activeItemMenu === item.id ? 'bg-slate-100 text-slate-600' : ''}`}
+                            >
+                                <MoreVertical size={18} />
+                            </button>
+                            {/* Click Menu */}
+                            {activeItemMenu === item.id && (
+                                <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-100 rounded-lg shadow-xl py-1 z-20 animate-fade-in-down">
+                                    <button className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"><PenLine size={14}/> Edit</button>
+                                    
+                                    {/* Move Submenu Logic */}
+                                    <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Move to Collection</div>
+                                    <div className="max-h-32 overflow-y-auto">
                                         <button 
-                                            key={folder.id}
-                                            onClick={(e) => { e.stopPropagation(); handleMoveItem(item.id, folder.id); }}
-                                            className={`w-full text-left px-4 py-1.5 text-sm hover:bg-slate-50 flex items-center gap-2 ${item.folderId === folder.id ? 'text-teal-600 font-bold' : 'text-slate-600'}`}
+                                            onClick={(e) => { e.stopPropagation(); handleMoveItem(item.id, 'all'); }}
+                                            className={`w-full text-left px-4 py-1.5 text-sm hover:bg-slate-50 flex items-center gap-2 ${!item.folderId ? 'text-teal-600 font-bold' : 'text-slate-600'}`}
                                         >
-                                            <Folder size={14}/> {folder.name}
+                                            <FolderOpen size={14}/> All References
+                                        </button>
+                                        {folders.map(folder => (
+                                            <button 
+                                                key={folder.id}
+                                                onClick={(e) => { e.stopPropagation(); handleMoveItem(item.id, folder.id); }}
+                                                className={`w-full text-left px-4 py-1.5 text-sm hover:bg-slate-50 flex items-center gap-2 ${item.folderId === folder.id ? 'text-teal-600 font-bold' : 'text-slate-600'}`}
+                                            >
+                                                <Folder size={14}/> {folder.name}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="h-px bg-slate-100 my-1"></div>
+                                    <button onClick={() => handleDelete(item.id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14}/> Delete</button>
+                                </div>
+                            )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Quick Action Footer */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button 
+                            onClick={() => handleViewMetrics(item)}
+                            className="text-xs font-medium text-slate-500 hover:text-teal-600 flex items-center gap-1"
+                        >
+                            <Activity size={12} /> View Details
+                        </button>
+                        <div className="relative">
+                            <button 
+                            onClick={(e) => { e.stopPropagation(); setOpenCopyMenuId(openCopyMenuId === item.id ? null : item.id); }}
+                            className="text-xs font-medium text-slate-500 hover:text-teal-600 flex items-center gap-1"
+                            >
+                                <Copy size={12} /> Copy Citation
+                            </button>
+                            {openCopyMenuId === item.id && (
+                                <div className="absolute left-0 bottom-full mb-1 w-32 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50">
+                                    {['APA 7th', 'MLA 9', 'Harvard', 'Chicago', 'IEEE'].map(style => (
+                                        <button 
+                                            key={style}
+                                            onClick={() => handleCopyCitation(item, style)}
+                                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 text-slate-700"
+                                        >
+                                            {style}
                                         </button>
                                     ))}
                                 </div>
-
-                                <div className="h-px bg-slate-100 my-1"></div>
-                                <button onClick={() => handleDelete(item.id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14}/> Delete</button>
-                             </div>
-                           )}
+                            )}
                         </div>
-                     </div>
-                  </div>
+                    </div>
+                </div>
+                ))
+            )}
+            </div>
 
-                  {/* Quick Action Footer */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                     <button 
-                        onClick={() => handleViewMetrics(item)}
-                        className="text-xs font-medium text-slate-500 hover:text-teal-600 flex items-center gap-1"
-                     >
-                        <Activity size={12} /> View Details
-                     </button>
-                     <div className="relative">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setOpenCopyMenuId(openCopyMenuId === item.id ? null : item.id); }}
-                          className="text-xs font-medium text-slate-500 hover:text-teal-600 flex items-center gap-1"
-                        >
-                            <Copy size={12} /> Copy Citation
+            {/* AI Assistant Sidebar */}
+            {showAssistant && (
+                <div className="w-80 border-l border-slate-200 bg-white shadow-xl flex flex-col animate-scale-in origin-right z-20">
+                    <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-indigo-50">
+                        <div className="flex items-center gap-2 text-indigo-800 font-bold">
+                            <Bot size={20} /> Research Assistant
+                        </div>
+                        <button onClick={() => setShowAssistant(false)} className="text-slate-400 hover:text-slate-600">
+                            <X size={18} />
                         </button>
-                        {openCopyMenuId === item.id && (
-                            <div className="absolute left-0 bottom-full mb-1 w-32 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50">
-                                {['APA 7th', 'MLA 9', 'Harvard', 'Chicago', 'IEEE'].map(style => (
-                                    <button 
-                                        key={style}
-                                        onClick={() => handleCopyCitation(item, style)}
-                                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 text-slate-700"
-                                    >
-                                        {style}
-                                    </button>
-                                ))}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50" ref={assistantScrollRef}>
+                        {assistantMessages.map((msg) => (
+                            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[90%] p-3 rounded-xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'}`}>
+                                    {msg.type === 'results' ? (
+                                        <div>
+                                            <p className="mb-2 font-medium">{msg.content}</p>
+                                            <div className="space-y-2">
+                                                {msg.data.map((res: any, idx: number) => (
+                                                    <div key={idx} className="bg-slate-50 p-2 rounded border border-slate-100 text-xs">
+                                                        <div className="font-bold text-slate-900 line-clamp-1">{res.title}</div>
+                                                        <div className="text-slate-500 mb-1">{res.author}, {res.year}</div>
+                                                        <button 
+                                                            onClick={() => handleAddFromAssistant(res)} 
+                                                            className="w-full py-1 bg-white border border-slate-200 text-indigo-600 rounded font-bold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1"
+                                                        >
+                                                            <Plus size={12} /> Add to Library
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : msg.type === 'citation' ? (
+                                        <div>
+                                            <p className="mb-2 font-medium">{msg.content}</p>
+                                            <div className="bg-slate-50 p-2 rounded border border-slate-100 text-xs mb-2">
+                                                <div className="font-serif italic">{msg.data.formatted}</div>
+                                            </div>
+                                            <button 
+                                                onClick={() => handleAddFromAssistant(msg.data)} 
+                                                className="w-full py-1 bg-indigo-50 text-indigo-700 rounded font-bold hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1"
+                                            >
+                                                <Plus size={12} /> Save to Library
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        msg.content
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                        {isAssistantLoading && (
+                            <div className="flex justify-start">
+                                <div className="bg-white border border-slate-200 p-3 rounded-xl rounded-bl-none shadow-sm flex items-center gap-2 text-xs text-slate-500">
+                                    <Sparkles size={14} className="animate-spin text-indigo-500" /> Thinking...
+                                </div>
                             </div>
                         )}
-                     </div>
-                  </div>
-               </div>
-             ))
-           )}
+                    </div>
+
+                    <div className="p-3 border-t border-slate-200 bg-white">
+                        <div className="relative">
+                            <input 
+                                className="w-full border border-slate-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white transition-colors"
+                                placeholder="Find papers or format text..."
+                                value={assistantInput}
+                                onChange={(e) => setAssistantInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAssistantSubmit()}
+                            />
+                            <button 
+                                onClick={handleAssistantSubmit}
+                                disabled={!assistantInput.trim() || isAssistantLoading}
+                                className="absolute right-2 top-2 text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                            >
+                                <Send size={16} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
       </div>
 

@@ -37,6 +37,29 @@ export interface AISuggestion {
   explanation: string;
 }
 
+export interface ValidationIssue {
+  id: string;
+  category: 'fact' | 'integrity' | 'quality';
+  severity: 'high' | 'medium' | 'low';
+  text: string;
+  issue: string;
+  recommendation: string;
+}
+
+export interface ValidationReport {
+  factScore: number;
+  integrityScore: number;
+  qualityScore: number;
+  issues: ValidationIssue[];
+  summary: string;
+}
+
+export interface AnalyticsReport {
+  peakPerformance: string;
+  academicTone: string;
+  goalProjection: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';

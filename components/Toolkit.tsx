@@ -1,16 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer
 } from 'recharts';
 import { 
   PenTool, BookOpen, Briefcase, Database, Type, FileText, 
   Globe, Clock, Table, CheckSquare, Sparkles, Presentation,
   RefreshCw, X, Copy, Terminal, Link, Microscope, Users, Eye, Calculator, Tag, Cloud,
-  GitGraph, ArrowUpRight, Calendar, Play, Pause, RotateCcw
+  GitGraph, ArrowUpRight, Calendar, Play, Pause, RotateCcw, ShieldCheck, AlertTriangle, Check, BrainCircuit
 } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
 import { OpenCitationsService } from '../services/openCitationsService';
+import { ValidationReport, ValidationIssue } from '../types';
 
 interface Tool {
   id: string;
@@ -35,6 +36,9 @@ export const Toolkit: React.FC = () => {
       recentCitations: any[];
       chartData: any[];
   } | null>(null);
+
+  // Validation Report State
+  const [validationReport, setValidationReport] = useState<ValidationReport | null>(null);
 
   // Sample Size State
   const [sampleSizeParams, setSampleSizeParams] = useState({ N: '', confidence: '95', error: '5', p: '0.5' });
@@ -93,6 +97,20 @@ export const Toolkit: React.FC = () => {
     const res = await GeminiService.checkScientificPaper(input);
     setOutput(res);
     setIsLoading(false);
+  };
+
+  const handleResearchValidation = async () => {
+    if (!input) return;
+    setIsLoading(true);
+    try {
+        const report = await GeminiService.validateResearch(input);
+        setValidationReport(report);
+    } catch (e) {
+        console.error(e);
+        setOutput("An error occurred during validation.");
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const handleCitationGraph = async () => {
@@ -195,11 +213,13 @@ export const Toolkit: React.FC = () => {
       setOutput('');
       setInput('');
       setCitationData(null);
+      setValidationReport(null);
       setSampleSizeResult(null);
   };
 
   const tools: Tool[] = [
     // --- Writing Tools ---
+    { id: 't32', name: 'Research Validator', description: 'Fact-check claims, verify integrity, and score quality.', icon: ShieldCheck, category: 'Research', status: 'Active', action: () => openTool('t32') },
     { id: 't31', name: 'Scientific Paper Checker', description: 'Audit structure, acronyms, and formatting.', icon: Microscope, category: 'Writing', status: 'Active', action: () => openTool('t31') },
     { id: 't1', name: 'Abstract Generator', description: 'Create a concise summary of your work.', icon: FileText, category: 'Writing', status: 'Active', action: () => openTool('t1') },
     { id: 't2', name: 'Title Perfector', description: 'Generate catchy & academic titles.', icon: Type, category: 'Writing', status: 'Active', action: () => openTool('t2') },
@@ -209,7 +229,7 @@ export const Toolkit: React.FC = () => {
     { id: 't6', name: 'Originality Improver', description: 'Reduce cliches and academic tropes.', icon: CheckSquare, category: 'Writing', status: 'Active', action: () => openTool('t6') },
     { id: 't7', name: 'Paraphrasing Tool', description: 'Rewrite sentences to avoid plagiarism.', icon: RefreshCw, category: 'Writing', status: 'Active', action: () => openTool('t7') },
     { id: 't8', name: 'LaTeX Equation Builder', description: 'Convert math to LaTeX code.', icon: Terminal, category: 'Writing', status: 'Active', action: () => openTool('t8') },
-    { id: 't9', name: 'Argument Logic Scorer', description: 'Evaluate the strength of your claims.', icon: Sparkles, category: 'Writing', status: 'Active', action: () => openTool('t9') },
+    { id: 't9', name: 'Argument Logic Scorer', description: 'Evaluate the strength of your claims.', icon: BrainCircuit, category: 'Writing', status: 'Active', action: () => openTool('t9') },
     { id: 't10', name: 'Thesis Statement Generator', description: 'Craft a strong central argument.', icon: PenTool, category: 'Writing', status: 'Active', action: () => openTool('t10') },
 
     // --- Research Tools ---
@@ -250,7 +270,7 @@ export const Toolkit: React.FC = () => {
         </p>
       </div>
 
-      {['Writing', 'Research', 'Career', 'Data'].map((cat) => (
+      {['Research', 'Writing', 'Career', 'Data'].map((cat) => (
         <div key={cat} className="mb-8 md:mb-10">
            <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">{cat} Tools</h3>
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -287,7 +307,7 @@ export const Toolkit: React.FC = () => {
                  <Sparkles className="text-teal-500" size={20} />
                  {tools.find(t => t.id === activeTool)?.name}
               </h2>
-              <button onClick={() => { setActiveTool(null); setOutput(''); setInput(''); setCitationData(null); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+              <button onClick={() => { setActiveTool(null); setOutput(''); setInput(''); setCitationData(null); setValidationReport(null); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
             </div>
             
             <div className="p-4 md:p-6 flex-1 overflow-y-auto">
@@ -353,6 +373,82 @@ export const Toolkit: React.FC = () => {
                                <RotateCcw size={32} />
                            </button>
                        </div>
+                   </div>
+               ) : activeTool === 't32' ? (
+                   /* Research Validator */
+                   <div className="space-y-6">
+                       {!validationReport ? (
+                           <div className="space-y-4">
+                               <label className="block text-sm font-medium text-slate-700">Paste your text to validate (Abstract, Chapter, etc.):</label>
+                               <textarea 
+                                  className="w-full h-40 p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 resize-none text-sm"
+                                  placeholder="Paste text here..."
+                                  value={input}
+                                  onChange={(e) => setInput(e.target.value)}
+                               />
+                               <button 
+                                  onClick={handleResearchValidation}
+                                  disabled={isLoading || !input}
+                                  className="w-full bg-teal-600 text-white py-3 rounded-lg font-bold hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                               >
+                                  {isLoading ? <RefreshCw className="animate-spin" /> : <ShieldCheck size={18} />}
+                                  <span>Start Validation Scan</span>
+                               </button>
+                           </div>
+                       ) : (
+                           <div className="space-y-6 animate-fade-in">
+                               <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm">
+                                   <h3 className="font-bold text-slate-800 mb-2">Executive Summary</h3>
+                                   <p className="text-slate-600">{validationReport.summary}</p>
+                               </div>
+                               
+                               <div className="grid grid-cols-3 gap-4">
+                                   {[
+                                       { label: 'Fact Check', score: validationReport.factScore, color: validationReport.factScore > 80 ? 'text-green-600' : 'text-orange-500' },
+                                       { label: 'Integrity', score: validationReport.integrityScore, color: validationReport.integrityScore > 80 ? 'text-green-600' : 'text-orange-500' },
+                                       { label: 'Quality', score: validationReport.qualityScore, color: validationReport.qualityScore > 80 ? 'text-green-600' : 'text-orange-500' },
+                                   ].map((m, i) => (
+                                       <div key={i} className="text-center p-3 border rounded-lg bg-white">
+                                           <div className={`text-2xl font-bold ${m.color}`}>{m.score}%</div>
+                                           <div className="text-[10px] uppercase text-slate-400 font-bold">{m.label}</div>
+                                       </div>
+                                   ))}
+                               </div>
+
+                               <div className="space-y-3">
+                                   <h4 className="text-sm font-bold text-slate-700">Identified Issues</h4>
+                                   {validationReport.issues.length === 0 ? (
+                                       <div className="p-4 text-center text-slate-500 bg-slate-50 rounded-lg italic">No major issues found!</div>
+                                   ) : (
+                                       validationReport.issues.map((issue: ValidationIssue, idx: number) => (
+                                           <div key={idx} className={`p-3 rounded-lg border ${issue.severity === 'high' ? 'bg-red-50 border-red-100' : 'bg-white border-slate-200'}`}>
+                                               <div className="flex justify-between items-start mb-1">
+                                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                                       issue.category === 'fact' ? 'bg-blue-100 text-blue-700' :
+                                                       issue.category === 'integrity' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'
+                                                   }`}>{issue.category}</span>
+                                                   <span className={`text-[10px] font-bold ${issue.severity === 'high' ? 'text-red-600' : 'text-slate-400'}`}>
+                                                       {issue.severity.toUpperCase()} PRIORITY
+                                                   </span>
+                                               </div>
+                                               <p className="font-bold text-slate-800 text-xs mb-1">{issue.issue}</p>
+                                               <p className="text-xs text-slate-600 mb-2">"{issue.text}"</p>
+                                               <div className="flex items-center gap-1 text-xs text-teal-700 font-medium">
+                                                   <Check size={12} /> {issue.recommendation}
+                                               </div>
+                                           </div>
+                                       ))
+                                   )}
+                               </div>
+                               
+                               <button 
+                                  onClick={() => { setValidationReport(null); setOutput(''); }}
+                                  className="w-full py-2 text-slate-500 hover:text-slate-700 font-medium text-sm"
+                               >
+                                  Run Another Check
+                               </button>
+                           </div>
+                       )}
                    </div>
                ) : (
                    /* Generic Text/Search Tools */

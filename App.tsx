@@ -4,7 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { DocumentsList } from './components/DocumentsList';
 import { Editor } from './components/Editor';
-import { Templates, KENYAN_UNIVERSITIES } from './components/Templates';
+import { Templates } from './components/Templates';
 import { Marketplace } from './components/Marketplace';
 import { Settings } from './components/Settings';
 import { Toolkit } from './components/Toolkit';
@@ -16,6 +16,7 @@ import { LandingPage } from './components/LandingPage';
 import { Document, University, View, LibraryItem, LibraryFolder } from './types';
 import { Construction, Menu, GraduationCap, LifeBuoy, Loader2 } from 'lucide-react';
 import { dbService } from './services/dbService';
+import { KENYAN_UNIVERSITIES } from './lib/constants';
 
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);

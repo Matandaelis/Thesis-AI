@@ -2,7 +2,7 @@
 'use server';
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate, Journal } from "@/types";
+import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate, Journal, ValidationReport, AnalyticsReport } from "@/types";
 
 // Helper to initialize AI client lazily to avoid build-time errors
 function getAIClient() {
@@ -11,6 +11,90 @@ function getAIClient() {
     throw new Error("API_KEY environment variable is missing.");
   }
   return new GoogleGenAI({ apiKey });
+}
+
+export async function validateResearchAction(text: string): Promise<ValidationReport> {
+  const ai = getAIClient();
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `
+        You are an academic auditor and fact-checker. Analyze the following academic text for three pillars of validity:
+        
+        1. **Fact-Checking**: Identify specific claims, statistics, or historical assertions. Verify them against general knowledge and real-time information. Flag dubious or unsupported claims.
+        2. **Academic Integrity**: Check for citation gaps (claims without references), potential plagiarism (generic/clichéd phrasing), and correct attribution.
+        3. **Quality Metrics**: Evaluate coherence, flow, argument strength, and methodology appropriateness.
+
+        Text to validate:
+        "${text.substring(0, 15000)}"
+
+        Return a strictly valid JSON object adhering to this schema:
+        {
+          "factScore": number (0-100),
+          "integrityScore": number (0-100),
+          "qualityScore": number (0-100),
+          "summary": string (A brief executive summary of the validation),
+          "issues": [
+            {
+              "category": "fact" | "integrity" | "quality",
+              "severity": "high" | "medium" | "low",
+              "text": "The specific substring in the text causing the issue",
+              "issue": "Description of the problem (e.g., 'Unsupported statistical claim')",
+              "recommendation": "How to fix it (e.g., 'Add a citation to a 2023 study')"
+            }
+          ]
+        }
+      `,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            factScore: { type: Type.INTEGER },
+            integrityScore: { type: Type.INTEGER },
+            qualityScore: { type: Type.INTEGER },
+            summary: { type: Type.STRING },
+            issues: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  category: { type: Type.STRING },
+                  severity: { type: Type.STRING },
+                  text: { type: Type.STRING },
+                  issue: { type: Type.STRING },
+                  recommendation: { type: Type.STRING },
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const jsonString = response.text || '{}';
+    const data = JSON.parse(jsonString);
+    
+    // Add IDs to issues for UI handling
+    data.issues = data.issues.map((issue: any, index: number) => ({
+        ...issue,
+        id: `val-${Date.now()}-${index}`
+    }));
+
+    return data as ValidationReport;
+
+  } catch (error) {
+    console.error("Validation Action Error", error);
+    return {
+      factScore: 0,
+      integrityScore: 0,
+      qualityScore: 0,
+      summary: "Error running validation checks. Please try again.",
+      issues: []
+    };
+  }
 }
 
 export async function filterDocumentsAction(query: string, docsMetadata: any[]): Promise<string[]> {
@@ -582,7 +666,7 @@ export async function checkScientificPaperAction(content: string): Promise<strin
   } catch (e) { return "Error checking paper."; }
 }
 
-export async function generateAnalyticsReportAction(docsSummary: string): Promise<any> {
+export async function generateAnalyticsReportAction(docsSummary: string): Promise<AnalyticsReport> {
   try {
       const ai = getAIClient();
       const response = await ai.models.generateContent({

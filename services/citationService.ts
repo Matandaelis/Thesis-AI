@@ -2,6 +2,7 @@
 import { LibraryItem } from "@/types";
 
 const CROSSREF_API_BASE = "https://api.crossref.org/works";
+const DATACITE_API_BASE = "https://api.datacite.org/dois";
 
 export interface CrossRefPaper {
   DOI: string;
@@ -18,15 +19,48 @@ export interface CrossRefPaper {
 export const CitationService = {
   async fetchByDOI(doi: string): Promise<CrossRefPaper | null> {
     const cleanDoi = doi.trim().replace(/^(doi:|https?:\/\/doi\.org\/)/i, '');
+    
+    // 1. Try CrossRef
     try {
       const res = await fetch(`${CROSSREF_API_BASE}/${encodeURIComponent(cleanDoi)}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.message;
+      if (res.ok) {
+        const data = await res.json();
+        return data.message;
+      }
     } catch (e) {
-      console.error("CrossRef DOI Error", e);
-      return null;
+      console.warn("CrossRef lookup failed, checking DataCite...", e);
     }
+
+    // 2. Fallback to DataCite (Great for datasets, software, and non-journal citations)
+    try {
+      const res = await fetch(`${DATACITE_API_BASE}/${encodeURIComponent(cleanDoi)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const attrs = data.data.attributes;
+        
+        // Map DataCite attributes to CrossRefPaper structure for compatibility
+        return {
+            DOI: attrs.doi,
+            title: attrs.titles.map((t: any) => t.title),
+            author: attrs.creators.map((c: any) => {
+                // DataCite authors can be "Family, Given" or just "Name"
+                if (c.familyName && c.givenName) return { family: c.familyName, given: c.givenName };
+                const parts = c.name.split(',');
+                if (parts.length === 2) return { family: parts[0].trim(), given: parts[1].trim() };
+                return { family: c.name, given: '' };
+            }),
+            issued: { 'date-parts': [[attrs.publicationYear]] },
+            publisher: attrs.publisher,
+            URL: `https://doi.org/${attrs.doi}`,
+            type: attrs.types.resourceTypeGeneral,
+            'container-title': [attrs.publisher] // Use publisher as container fallback
+        };
+      }
+    } catch (e) {
+        console.error("DataCite lookup failed", e);
+    }
+
+    return null;
   },
 
   async searchPapers(query: string, limit = 10): Promise<CrossRefPaper[]> {
@@ -56,7 +90,9 @@ export const CitationService = {
         return authStr.replace(/;/g, ',').replace(/\.\./g, '.');
     };
 
-    switch (style.toLowerCase().replace(/[^a-z]/g, '')) {
+    const styleKey = style.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    switch (styleKey) {
       case 'mla':
       case 'mla9':
         // Author. "Title." Source, vol. x, no. x, Year, pp. x-x.
@@ -64,7 +100,7 @@ export const CitationService = {
       
       case 'harvard':
         // Author, A. (Year) 'Title', Source. Available at: URL.
-        return `${cleanAuthors(a)} (${y}) '${t}', ${s}.${url ? ` Available at: ${url}` : ''}`;
+        return `${cleanAuthors(a)} (${y}) '${t}', ${s}.${url && url !== '#' ? ` Available at: ${url}` : ''}`;
       
       case 'chicago':
         // Author. "Title." Source. Year.
@@ -79,6 +115,7 @@ export const CitationService = {
       case 'apa7th':
       default:
         // Author, A. A. (Year). Title of article. Title of Periodical, volume number(issue number), pages.
+        // Simplified for general use without detailed volume/issue data
         return `${cleanAuthors(a)} (${y}). ${t}. ${s}.`;
     }
   },
@@ -87,10 +124,11 @@ export const CitationService = {
    * Generates an in-text citation string (e.g., "(Smith, 2023)" or "[1]").
    */
   formatInText(item: LibraryItem, style: string, index?: number): string {
-     const authorLastName = item.author.split(',')[0].trim(); // Naive extraction of first author's last name
+     const authorLastName = item.author ? item.author.split(',')[0].trim() : 'Anonymous'; 
      const year = item.year || "n.d.";
+     const styleKey = style.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-     switch (style.toLowerCase().replace(/[^a-z]/g, '')) {
+     switch (styleKey) {
         case 'ieee':
             return `[${index || 1}]`;
         case 'mla':

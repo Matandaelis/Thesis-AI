@@ -23,7 +23,8 @@ import {
   generateCitationAction,
   runGenericToolAction,
   findCitationAction,
-  filterDocumentsAction
+  filterDocumentsAction,
+  validateResearchAction
 } from "@/app/actions";
 
 // This file now acts as a bridge to Server Actions
@@ -51,5 +52,6 @@ export const GeminiService = {
   generateCitation: generateCitationAction,
   runGenericTool: runGenericToolAction,
   findCitation: findCitationAction,
-  filterDocuments: filterDocumentsAction
+  filterDocuments: filterDocumentsAction,
+  validateResearch: validateResearchAction
 };

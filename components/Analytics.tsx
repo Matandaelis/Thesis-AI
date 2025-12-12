@@ -8,7 +8,7 @@ import {
   TrendingUp, Clock, FileText, Activity, Calendar, Award, 
   Zap, BrainCircuit, ArrowUpRight, ArrowDownRight, Target, BookOpen, Sparkles, RefreshCw
 } from 'lucide-react';
-import { Document } from '../types';
+import { Document, AnalyticsReport } from '../types';
 import { GeminiService } from '../services/geminiService';
 
 interface AnalyticsProps {
@@ -20,7 +20,7 @@ const COLORS = ['#0d9488', '#f59e0b', '#6366f1', '#ef4444'];
 export const Analytics: React.FC<AnalyticsProps> = ({ documents }) => {
   const [timeRange, setTimeRange] = useState<'week' | 'month'>('week');
   const [vocabStats, setVocabStats] = useState<any[]>([]);
-  const [aiReport, setAiReport] = useState<any>(null);
+  const [aiReport, setAiReport] = useState<AnalyticsReport | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // --- Real-time Calculations ---

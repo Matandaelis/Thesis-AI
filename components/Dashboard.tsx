@@ -1,9 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar
 } from 'recharts';
-import { Clock, CheckCircle, AlertCircle, FileText, Plus, Bell, RefreshCw, ExternalLink, ShieldAlert, Target, Trophy, Edit2 } from 'lucide-react';
+import { 
+  Clock, CheckCircle2, AlertCircle, FileText, Plus, Bell, RefreshCw, 
+  ExternalLink, ShieldAlert, Target, Trophy, Edit2, ArrowRight, 
+  Sparkles, Zap, BookOpen, Quote, Play, ChevronRight, PenTool
+} from 'lucide-react';
 import { Document, UniversityUpdate } from '../types';
 import { GeminiService } from '../services/geminiService';
 
@@ -12,14 +16,23 @@ interface DashboardProps {
   onOpenDocument: (doc: Document) => void;
 }
 
-const data = [
-  { name: 'Mon', hours: 2 },
-  { name: 'Tue', hours: 4 },
-  { name: 'Wed', hours: 3 },
-  { name: 'Thu', hours: 5 },
-  { name: 'Fri', hours: 2 },
-  { name: 'Sat', hours: 6 },
-  { name: 'Sun', hours: 4 },
+const activityData = [
+  { name: 'Mon', words: 450 },
+  { name: 'Tue', words: 1200 },
+  { name: 'Wed', words: 800 },
+  { name: 'Thu', words: 1500 },
+  { name: 'Fri', words: 600 },
+  { name: 'Sat', words: 2000 },
+  { name: 'Sun', words: 1000 },
+];
+
+const THESIS_STAGES = [
+  { id: 1, label: 'Proposal', status: 'done' },
+  { id: 2, label: 'Literature', status: 'done' },
+  { id: 3, label: 'Methodology', status: 'current' },
+  { id: 4, label: 'Results', status: 'pending' },
+  { id: 5, label: 'Discussion', status: 'pending' },
+  { id: 6, label: 'Defense', status: 'pending' },
 ];
 
 const UNI_ID_TO_NAME: Record<string, string> = {
@@ -55,15 +68,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
 
   // Daily Goal State
   const [dailyGoal, setDailyGoal] = useState(500);
-  const [todayWords, setTodayWords] = useState(320); // Mocked progress
+  const [todayWords, setTodayWords] = useState(320); 
   const [isEditingGoal, setIsEditingGoal] = useState(false);
 
-  // Simple calculated stats
-  const completedDocs = documents.filter(d => d.status === 'Completed').length;
-  const inProgressDocs = documents.filter(d => d.status !== 'Completed').length;
-  const avgProgress = documents.length > 0 
-    ? Math.round(documents.reduce((acc, doc) => acc + doc.progress, 0) / documents.length) 
-    : 0;
+  // Derived Stats
+  const activeDoc = documents.length > 0 ? documents[0] : null;
+  const goalPercentage = Math.min(100, Math.round((todayWords / dailyGoal) * 100));
 
   const handleScanUpdates = async () => {
       setIsScanning(true);
@@ -101,230 +111,303 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
       }
   };
 
-  const goalPercentage = Math.min(100, Math.round((todayWords / dailyGoal) * 100));
-
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 animate-fade-in pb-20">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in pb-20 space-y-6">
       
-      {/* Header with Goal Widget */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
-        <div className="flex-1">
-           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 font-serif">Welcome back, Edwin</h1>
-           <p className="text-slate-500 mt-1 md:mt-2 text-sm md:text-base">You have {inProgressDocs} active thesis documents.</p>
+      {/* 1. Header & Greeting */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+           <h1 className="text-3xl font-bold text-slate-900 font-serif">Dashboard</h1>
+           <p className="text-slate-500 text-sm">Overview of your academic progress.</p>
         </div>
-        
-        {/* Daily Goal Widget */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4 w-full lg:w-auto min-w-[300px]">
-            <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
-               {/* Circular Progress SVG */}
-               <svg className="w-full h-full transform -rotate-90">
-                  <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100" />
-                  <circle 
-                    cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" 
-                    strokeDasharray={175.9} 
-                    strokeDashoffset={175.9 - (175.9 * goalPercentage) / 100} 
-                    className={`${goalPercentage >= 100 ? 'text-green-500' : 'text-teal-500'} transition-all duration-1000 ease-out`} 
-                    strokeLinecap="round"
-                  />
-               </svg>
-               <div className="absolute inset-0 flex items-center justify-center">
-                  {goalPercentage >= 100 ? <Trophy size={20} className="text-green-500" /> : <Target size={20} className="text-teal-600" />}
-               </div>
-            </div>
-            
-            <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Daily Goal</span>
-                    <button onClick={() => setIsEditingGoal(!isEditingGoal)} className="text-slate-400 hover:text-teal-600">
-                        <Edit2 size={12} />
-                    </button>
-                </div>
-                {isEditingGoal ? (
-                    <div className="flex items-center gap-2">
-                        <input 
-                           type="number" 
-                           className="w-20 px-2 py-0.5 text-sm border border-slate-300 rounded focus:ring-1 focus:ring-teal-500 outline-none"
-                           value={dailyGoal}
-                           onChange={(e) => setDailyGoal(Number(e.target.value))}
-                           onBlur={() => setIsEditingGoal(false)}
-                           autoFocus
-                        />
-                        <span className="text-xs text-slate-500">words</span>
-                    </div>
-                ) : (
-                    <div>
-                        <span className="text-xl font-bold text-slate-800">{todayWords}</span>
-                        <span className="text-sm text-slate-500"> / {dailyGoal} words</span>
-                    </div>
-                )}
-            </div>
-            
-            <button className="bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-lg flex items-center justify-center transition-colors shadow-sm">
-                <Plus size={20} />
-            </button>
+        <div className="text-right hidden md:block">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Term</p>
+            <p className="text-sm font-bold text-slate-700">Sep 2023 - Dec 2023</p>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
-          <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
-            <Clock size={24} />
+      {/* 2. Hero Section: Recent Work & Daily Goal */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Main Hero: Resume Writing */}
+          <div className="lg:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between min-h-[220px]">
+              <div className="absolute top-0 right-0 p-8 opacity-10">
+                  <FileText size={180} />
+              </div>
+              
+              <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-2">
+                      <span className="bg-teal-500/20 text-teal-300 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-500/30 uppercase tracking-wider">
+                          Active Project
+                      </span>
+                      <span className="text-slate-400 text-xs flex items-center gap-1">
+                          <Clock size={10} /> Last edited {activeDoc?.lastModified ? new Date(activeDoc.lastModified).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now'}
+                      </span>
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-bold font-serif mb-2 line-clamp-1" title={activeDoc?.title}>
+                      {activeDoc?.title || "Start Your First Thesis"}
+                  </h2>
+                  <p className="text-slate-300 text-sm max-w-md line-clamp-2">
+                      {activeDoc ? "You were working on the Methodology section. Continue identifying your research variables." : "Create a new document to begin your research journey."}
+                  </p>
+              </div>
+
+              <div className="relative z-10 mt-6 flex gap-3">
+                  {activeDoc ? (
+                      <button 
+                        onClick={() => onOpenDocument(activeDoc)}
+                        className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-teal-900/50"
+                      >
+                          <Edit2 size={16} /> Resume Writing
+                      </button>
+                  ) : (
+                      <button className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all">
+                          <Plus size={16} /> Create Document
+                      </button>
+                  )}
+                  <button className="bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all backdrop-blur-sm">
+                      <Sparkles size={16} /> AI Critique
+                  </button>
+              </div>
           </div>
-          <div>
-            <p className="text-sm text-slate-500">Active Projects</p>
-            <p className="text-2xl font-bold text-slate-900">{documents.length}</p>
+
+          {/* Daily Goal Widget */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                  <div>
+                      <h3 className="text-slate-800 font-bold text-lg">Daily Goal</h3>
+                      <p className="text-slate-500 text-xs">Keep your streak alive!</p>
+                  </div>
+                  <div className="bg-orange-50 text-orange-600 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                      <Zap size={12} fill="currentColor" /> 5 Day Streak
+                  </div>
+              </div>
+
+              <div className="flex items-center justify-center my-4">
+                  <div className="relative w-24 h-24">
+                      <svg className="w-full h-full transform -rotate-90">
+                          <circle cx="48" cy="48" r="40" stroke="#f1f5f9" strokeWidth="8" fill="transparent" />
+                          <circle 
+                            cx="48" cy="48" r="40" stroke="#0d9488" strokeWidth="8" fill="transparent" 
+                            strokeDasharray={251.2} 
+                            strokeDashoffset={251.2 - (251.2 * goalPercentage) / 100} 
+                            strokeLinecap="round"
+                            className="transition-all duration-1000 ease-out"
+                          />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-2xl font-bold text-slate-800">{todayWords}</span>
+                          <span className="text-[10px] text-slate-400">/ {dailyGoal}</span>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                  <button 
+                    onClick={() => setIsEditingGoal(!isEditingGoal)}
+                    className="text-slate-400 hover:text-teal-600 text-xs font-medium underline decoration-dashed"
+                  >
+                      Edit Target
+                  </button>
+                  {isEditingGoal && (
+                      <input 
+                        type="number" 
+                        className="w-16 border rounded px-1 text-xs" 
+                        value={dailyGoal} 
+                        onChange={(e) => setDailyGoal(Number(e.target.value))}
+                        onBlur={() => setIsEditingGoal(false)}
+                        autoFocus
+                      />
+                  )}
+                  <span className="text-teal-600 font-bold text-xs">{goalPercentage}% Done</span>
+              </div>
           </div>
-        </div>
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
-          <div className="p-3 bg-green-100 text-green-600 rounded-lg">
-            <CheckCircle size={24} />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500">Avg. Completion</p>
-            <p className="text-2xl font-bold text-slate-900">{avgProgress}%</p>
-          </div>
-        </div>
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
-          <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
-            <AlertCircle size={24} />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500">Next Deadline</p>
-            <p className="text-2xl font-bold text-slate-900">Oct 14</p>
-          </div>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-        
-        {/* Left Column (Chart + Docs) */}
-        <div className="lg:col-span-2 space-y-6 md:space-y-8">
-            {/* Chart Section */}
-            <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Writing Activity</h3>
-            <div className="h-56 md:h-64">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                    <Tooltip 
-                    contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
-                    cursor={{ fill: '#f1f5f9' }}
-                    />
-                    <Bar dataKey="hours" fill="#0d9488" radius={[4, 4, 0, 0]} />
-                </BarChart>
-                </ResponsiveContainer>
-            </div>
-            </div>
+      {/* 3. Thesis Journey & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          
+          {/* Journey Roadmap */}
+          <div className="lg:col-span-3 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Target size={18} className="text-indigo-600" /> Thesis Journey
+                  </h3>
+                  <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">Estimated Completion: Dec 15</span>
+              </div>
+              
+              <div className="relative">
+                  {/* Connector Line */}
+                  <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -translate-y-1/2 z-0"></div>
+                  <div className="absolute top-1/2 left-0 h-1 bg-indigo-500 -translate-y-1/2 z-0 transition-all duration-1000" style={{width: '40%'}}></div>
 
-            {/* Recent Documents */}
-            <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold text-slate-800">Recent Documents</h3>
-                    <button className="text-sm text-teal-600 hover:text-teal-700 font-medium">View All</button>
-                </div>
-                <div className="space-y-3">
-                    {documents.length === 0 ? (
-                        <p className="text-sm text-slate-500 italic">No documents yet. Start writing!</p>
-                    ) : (
-                        documents.slice(0, 4).map((doc) => (
-                        <div 
-                            key={doc.id} 
-                            onClick={() => onOpenDocument(doc)}
-                            className="group p-3 rounded-lg border border-slate-100 hover:border-teal-200 hover:bg-teal-50 cursor-pointer transition-all flex items-start space-x-3"
-                        >
-                            <FileText className="text-slate-400 group-hover:text-teal-500 mt-1 shrink-0" size={20} />
-                            <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-slate-800 group-hover:text-teal-700 text-sm truncate">{doc.title}</h4>
-                                <p className="text-xs text-slate-500 mt-1">{doc.progress}% Complete • {doc.lastModified.toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                        ))
-                    )}
-                </div>
-            </div>
-        </div>
+                  <div className="relative z-10 flex justify-between">
+                      {THESIS_STAGES.map((stage) => (
+                          <div key={stage.id} className="flex flex-col items-center gap-2 group cursor-default">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
+                                  stage.status === 'done' ? 'bg-indigo-600 border-indigo-600 text-white' :
+                                  stage.status === 'current' ? 'bg-white border-indigo-600 text-indigo-600 shadow-lg scale-110' :
+                                  'bg-white border-slate-200 text-slate-300'
+                              }`}>
+                                  {stage.status === 'done' ? <CheckCircle2 size={14} /> : <span className="text-xs font-bold">{stage.id}</span>}
+                              </div>
+                              <span className={`text-xs font-medium transition-colors ${
+                                  stage.status === 'current' ? 'text-indigo-700 font-bold' : 
+                                  stage.status === 'done' ? 'text-indigo-900' : 'text-slate-400'
+                              }`}>
+                                  {stage.label}
+                              </span>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
 
-        {/* Right Column (Updates) */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-full relative overflow-hidden min-h-[400px]">
-            {/* Realtime Pulse Indicator */}
-            {isScanning && (
-                <div className="absolute top-0 left-0 right-0 h-1 bg-teal-500 animate-pulse z-10"></div>
-            )}
-            
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <Bell size={18} className="text-teal-600" /> University Updates
-                    </h3>
-                    {lastScanned && (
-                        <p className="text-[10px] text-slate-400 mt-1">
-                            Live Check: {lastScanned.toLocaleTimeString()}
-                        </p>
-                    )}
-                </div>
-                <button 
-                    onClick={handleScanUpdates} 
-                    disabled={isScanning}
-                    className={`p-2 rounded-full transition-all ${isScanning ? 'bg-teal-50 text-teal-600' : 'text-slate-500 hover:text-teal-600 hover:bg-teal-50'}`}
-                    title="Scan for latest updates"
-                >
-                    <RefreshCw size={16} className={isScanning ? 'animate-spin' : ''} />
-                </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4">
-                {isScanning && updates.length === 0 && (
-                   <div className="flex flex-col items-center justify-center h-32 text-slate-400 space-y-2">
-                       <RefreshCw className="animate-spin" size={24} />
-                       <span className="text-xs">Connecting to University Portals...</span>
-                   </div>
-                )}
-                
-                {!isScanning && updates.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-32 text-slate-400 space-y-2">
-                        <ShieldAlert size={24} />
-                        <span className="text-xs">No updates found. You're up to date!</span>
-                    </div>
-                )}
-
-                {updates.map((update) => (
-                    <div key={update.id} className="p-4 rounded-lg bg-slate-50 border border-slate-100 hover:border-teal-200 transition-colors group">
-                        <div className="flex justify-between items-start mb-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-100 truncate max-w-[100px]">
-                                {update.universityName}
-                            </span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                                update.type === 'deadline' ? 'bg-red-100 text-red-600' :
-                                update.type === 'formatting' ? 'bg-blue-100 text-blue-600' :
-                                'bg-teal-100 text-teal-600'
-                            }`}>
-                                {update.type}
-                            </span>
-                        </div>
-                        <h4 className="font-bold text-slate-800 text-sm mb-1 group-hover:text-teal-700 transition-colors">{update.title}</h4>
-                        <p className="text-xs text-slate-600 leading-relaxed mb-3">{update.description}</p>
-                        <div className="flex justify-between items-center pt-2 border-t border-slate-200/50">
-                            <span className="text-[10px] text-slate-400">Detected: {new Date(update.date).toLocaleDateString()}</span>
-                            {update.sourceUrl && (
-                                <a href={update.sourceUrl} target="_blank" rel="noreferrer" className="flex items-center text-[10px] text-teal-600 hover:underline font-medium">
-                                    Verify Source <ExternalLink size={10} className="ml-1" />
-                                </a>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <div className="mt-4 pt-4 border-t border-slate-100">
-                <button className="w-full py-2 text-xs font-medium text-slate-500 hover:text-slate-800 border border-dashed border-slate-300 rounded hover:bg-slate-50 transition-colors">
-                    View Compliance History
-                </button>
-            </div>
-        </div>
-
+          {/* Quick Actions Grid */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <h3 className="font-bold text-slate-800 mb-4 text-sm">Quick Actions</h3>
+              <div className="grid grid-cols-2 gap-3">
+                  <button className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-50 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 border border-slate-100 transition-all group">
+                      <Quote size={20} className="mb-2 text-slate-400 group-hover:text-teal-600" />
+                      <span className="text-[10px] font-bold">New Citation</span>
+                  </button>
+                  <button className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 border border-slate-100 transition-all group">
+                      <BookOpen size={20} className="mb-2 text-slate-400 group-hover:text-indigo-600" />
+                      <span className="text-[10px] font-bold">Search Lit</span>
+                  </button>
+                  <button className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-50 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-100 transition-all group">
+                      <ShieldAlert size={20} className="mb-2 text-slate-400 group-hover:text-rose-600" />
+                      <span className="text-[10px] font-bold">Plagiarism</span>
+                  </button>
+                  <button className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-50 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 border border-slate-100 transition-all group">
+                      <Play size={20} className="mb-2 text-slate-400 group-hover:text-amber-600" />
+                      <span className="text-[10px] font-bold">Focus Mode</span>
+                  </button>
+              </div>
+          </div>
       </div>
+
+      {/* 4. Analytics & Updates */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Activity Chart */}
+          <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-bold text-slate-800">Writing Velocity</h3>
+                  <select className="bg-slate-50 border border-slate-200 rounded-lg text-xs py-1 px-2 outline-none text-slate-600">
+                      <option>Last 7 Days</option>
+                      <option>Last 30 Days</option>
+                  </select>
+              </div>
+              <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <defs>
+                              <linearGradient id="colorWords" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.1}/>
+                                  <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+                              </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
+                          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
+                          <Tooltip 
+                              contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
+                              itemStyle={{ color: '#0f172a', fontSize: '12px', fontWeight: 'bold' }}
+                          />
+                          <Area type="monotone" dataKey="words" stroke="#0d9488" strokeWidth={3} fillOpacity={1} fill="url(#colorWords)" />
+                      </AreaChart>
+                  </ResponsiveContainer>
+              </div>
+          </div>
+
+          {/* University Updates */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col max-h-[400px]">
+              <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Bell size={18} className="text-teal-600" /> Updates
+                  </h3>
+                  <button 
+                      onClick={handleScanUpdates} 
+                      disabled={isScanning}
+                      className={`p-1.5 rounded-lg transition-all ${isScanning ? 'bg-teal-50 text-teal-600' : 'text-slate-400 hover:text-teal-600 hover:bg-teal-50'}`}
+                  >
+                      <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
+                  </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">
+                  {isScanning && updates.length === 0 && (
+                      <div className="text-center py-8 text-slate-400 text-xs">Scanning university portals...</div>
+                  )}
+                  {updates.map((update) => (
+                      <div key={update.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-teal-200 transition-colors group">
+                          <div className="flex justify-between items-start mb-1">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                                  {update.universityName === 'University of Nairobi' ? 'UON' : update.universityName}
+                              </span>
+                              <span className="text-[9px] text-slate-400">
+                                  {new Date(update.date).toLocaleDateString()}
+                              </span>
+                          </div>
+                          <h4 className="font-bold text-slate-800 text-xs mb-1 group-hover:text-teal-700">{update.title}</h4>
+                          <p className="text-[10px] text-slate-600 leading-relaxed line-clamp-2">{update.description}</p>
+                          {update.sourceUrl && (
+                              <a href={update.sourceUrl} target="_blank" rel="noreferrer" className="flex items-center text-[9px] text-teal-600 hover:underline font-bold mt-2">
+                                  Read More <ExternalLink size={8} className="ml-1" />
+                              </a>
+                          )}
+                      </div>
+                  ))}
+              </div>
+          </div>
+      </div>
+
+      {/* 5. Recent Documents List */}
+      <div>
+          <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-slate-800 text-lg">Recent Documents</h3>
+              <button className="text-sm font-bold text-teal-600 hover:text-teal-800 flex items-center gap-1">
+                  View All <ArrowRight size={14} />
+              </button>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="grid grid-cols-1 divide-y divide-slate-100">
+                  {documents.slice(0, 3).map((doc) => (
+                      <div 
+                          key={doc.id} 
+                          onClick={() => onOpenDocument(doc)}
+                          className="p-4 flex items-center gap-4 hover:bg-slate-50 cursor-pointer transition-colors group"
+                      >
+                          <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                              <FileText size={20} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-slate-800 text-sm truncate">{doc.title}</h4>
+                              <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                                  <span>{doc.status}</span>
+                                  <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                  <span>Edited {new Date(doc.lastModified).toLocaleDateString()}</span>
+                              </p>
+                          </div>
+                          <div className="hidden sm:flex items-center gap-4">
+                              <div className="w-24 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                  <div className="bg-teal-500 h-full rounded-full" style={{ width: `${doc.progress}%` }}></div>
+                              </div>
+                              <span className="text-xs font-bold text-slate-600 w-8 text-right">{doc.progress}%</span>
+                          </div>
+                          <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-600" />
+                      </div>
+                  ))}
+                  {documents.length === 0 && (
+                      <div className="p-8 text-center text-slate-400 italic text-sm">
+                          No documents yet. Create one to get started!
+                      </div>
+                  )}
+              </div>
+          </div>
+      </div>
+
     </div>
   );
 };
