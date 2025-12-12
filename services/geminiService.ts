@@ -4,9 +4,9 @@ import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate,
 
 // Helper to initialize AI client
 function getAIClient() {
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) {
-    console.warn("API_KEY environment variable is missing.");
+    console.warn("GEMINI_API_KEY or API_KEY environment variable is missing.");
   }
   return new GoogleGenAI({ apiKey: apiKey || '' });
 }
