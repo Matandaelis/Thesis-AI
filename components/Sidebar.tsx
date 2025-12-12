@@ -104,6 +104,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
     });
   }, [currentView]);
 
+  // Effect to auto-expand groups on search
+  useEffect(() => {
+    if (!searchTerm) return;
+
+    const expandMatchingGroups = (items: NavItem[]) => {
+       items.forEach(item => {
+           const matches = item.label.toLowerCase().includes(searchTerm.toLowerCase());
+           const subMatches = item.subItems ? item.subItems.some(sub => sub.label.toLowerCase().includes(searchTerm.toLowerCase())) : false;
+
+           if ((matches || subMatches) && item.subItems) {
+               setExpandedGroups(prev => prev.includes(item.label) ? prev : [...prev, item.label]);
+           }
+
+           if (item.subItems) {
+               expandMatchingGroups(item.subItems);
+           }
+       });
+    };
+
+    navSections.forEach(section => expandMatchingGroups(section.items));
+  }, [searchTerm]);
+
   // Filter items based on search
   const filterItems = (items: NavItem[]): NavItem[] => {
     if (!searchTerm) return items;
@@ -115,11 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
         acc.push({
           ...item,
           subItems: subMatches.length > 0 ? subMatches : item.subItems,
-          // Force expand if searching
         });
-        if (!expandedGroups.includes(item.label) && item.subItems) {
-            setExpandedGroups(prev => [...prev, item.label]);
-        }
       }
       return acc;
     }, []);
