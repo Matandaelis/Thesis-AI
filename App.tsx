@@ -13,6 +13,8 @@ import { Pricing } from './components/Pricing';
 import { ResearchLibrary } from './components/ResearchLibrary';
 import { Calendar } from './components/Calendar';
 import { LandingPage } from './components/LandingPage';
+import { JournalMatcher } from './components/JournalMatcher';
+import { SynthesisTool } from './components/SynthesisTool';
 import { Document, University, View, LibraryItem, LibraryFolder } from './types';
 import { Construction, Menu, GraduationCap, LifeBuoy, Loader2 } from 'lucide-react';
 import { dbService } from './services/dbService';
@@ -22,6 +24,7 @@ export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [previousView, setPreviousView] = useState<View>(View.DASHBOARD);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
+  const [currentPaper, setCurrentPaper] = useState<LibraryItem | null>(null); // New state for editing paper
   const [activeUniversity, setActiveUniversity] = useState<University | null>(null);
   const [universities, setUniversities] = useState<University[]>(KENYAN_UNIVERSITIES);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -71,6 +74,13 @@ export const App: React.FC = () => {
     setActiveUniversity(uni);
     setCurrentView(View.EDITOR);
     setIsSidebarOpen(false);
+  };
+
+  const handleOpenPaperEditor = (paper: LibraryItem) => {
+      setPreviousView(View.RESEARCH);
+      setCurrentPaper(paper);
+      setCurrentView(View.PAPER_EDITOR);
+      setIsSidebarOpen(false);
   };
 
   const handleCreateDocument = async (uni: University) => {
@@ -165,6 +175,12 @@ export const App: React.FC = () => {
     return <LandingPage onGetStarted={() => setCurrentView(View.DASHBOARD)} />;
   }
 
+  // Full Screen Editor View (No Sidebar)
+  // Reusing the Unified Editor Component
+  if (currentView === View.PAPER_EDITOR && currentPaper) {
+      return <Editor paper={currentPaper} onBack={() => setCurrentView(View.RESEARCH)} />;
+  }
+
   if (isLoading && documents.length === 0) {
       return (
           <div className="flex h-screen w-full items-center justify-center bg-slate-50">
@@ -256,7 +272,16 @@ export const App: React.FC = () => {
                 setItems={handleLibraryUpdate}
                 folders={libraryFolders}
                 setFolders={setLibraryFolders}
+                onOpenEditor={handleOpenPaperEditor}
              />
+          )}
+
+          {currentView === View.SYNTHESIS && (
+             <SynthesisTool items={libraryItems} />
+          )}
+
+          {currentView === View.JOURNAL_MATCHER && (
+             <JournalMatcher />
           )}
           
           {currentView === View.CALENDAR && (

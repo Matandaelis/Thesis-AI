@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, ShoppingBag, Settings, BookOpen, 
   Library, Calendar, BarChart2, Users, GraduationCap, ChevronRight,
   Layers, PenTool, CreditCard, Sparkles, HelpCircle, X, Search,
-  ChevronDown, PlusCircle, LogOut, Sun, Moon, Briefcase, Target
+  ChevronDown, PlusCircle, LogOut, Sun, Moon, Briefcase, Target, BrainCircuit
 } from 'lucide-react';
 import { View } from '../types';
 
@@ -61,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
           subItems: [
              { id: View.TOOLKIT, label: 'Scholar Toolkit', icon: PenTool },
              { id: View.RESEARCH, label: 'References Library', icon: BookOpen },
+             { id: View.SYNTHESIS, label: 'Lit. Synthesis', icon: BrainCircuit, badge: 'New' },
              { id: View.JOURNAL_MATCHER, label: 'Journal Matcher', icon: Target },
              { id: View.ANALYTICS, label: 'Writing Analytics', icon: BarChart2 },
           ]
@@ -70,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
           icon: Library,
           subItems: [
              { id: View.TEMPLATES, label: 'University Templates', icon: Layers },
-             { id: View.MARKETPLACE, label: 'Expert Marketplace', icon: ShoppingBag, badge: 'New' },
+             { id: View.MARKETPLACE, label: 'Expert Marketplace', icon: ShoppingBag, badge: 'Hot' },
              { id: View.COMMUNITY, label: 'Scholar Community', icon: Users, badge: 'Beta' },
           ]
         }

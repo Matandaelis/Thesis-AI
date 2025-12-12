@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate, Journal, ValidationReport, AnalyticsReport, University } from "@/types";
+import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate, Journal, ValidationReport, AnalyticsReport, University, LibraryItem } from "@/types";
 
 // Helper to initialize AI client
 function getAIClient() {
@@ -12,6 +12,20 @@ function getAIClient() {
 }
 
 export const GeminiService = {
+  embedText: async (text: string): Promise<number[]> => {
+    try {
+      const ai = getAIClient();
+      const response = await ai.models.embedContent({
+        model: 'text-embedding-004',
+        content: { parts: [{ text }] }
+      });
+      return response.embedding?.values || [];
+    } catch (error) {
+      console.error("Embedding Error", error);
+      return [];
+    }
+  },
+
   validateResearch: async (text: string): Promise<ValidationReport> => {
     const ai = getAIClient();
     try {
@@ -220,6 +234,78 @@ export const GeminiService = {
       });
       return response.text || "No response.";
     } catch (error) { return "Error connecting."; }
+  },
+
+  chatWithDocument: async (message: string, documentText: string, history: {role: string, text: string}[]): Promise<string> => {
+    try {
+      const ai = getAIClient();
+      const chat = ai.chats.create({
+        model: 'gemini-2.5-flash',
+        config: {
+          systemInstruction: `You are a research assistant. Answer questions strictly based on the provided academic paper text. If the answer is not in the text, say so. Keep answers concise and academic. Paper Content: "${documentText.substring(0, 50000)}"`
+        },
+        history: history.map(h => ({
+          role: h.role,
+          parts: [{ text: h.text }]
+        }))
+      });
+      
+      const response = await chat.sendMessage({ message });
+      return response.text || "I couldn't process that request.";
+    } catch (error) {
+      console.error("Chat with doc error", error);
+      return "Error connecting to AI service.";
+    }
+  },
+
+  // --- SYNTHESIS & MAP REDUCE ---
+  synthesizeLibraryItems: async (items: LibraryItem[], mode: 'thematic' | 'draft'): Promise<string> => {
+    if (items.length === 0) return "Please select items to synthesize.";
+    
+    const ai = getAIClient();
+    const PROMPT_TEMPLATE = mode === 'thematic' 
+      ? "You are an expert researcher. Synthesize the provided academic papers. Identify common themes, points of agreement, and points of disagreement or gaps. Output strictly in Markdown."
+      : "You are an expert academic writer. Draft a coherent 'Related Work' or 'Literature Review' section based on the provided papers. Integrate them into a narrative flow. Use citations in the format (Author, Year). Output strictly in Markdown.";
+
+    // Estimate token count roughly (4 chars per token). Limit safely to 30k tokens for context.
+    const totalLength = items.reduce((acc, item) => acc + (item.fullText?.length || 0) + (item.notes?.length || 0), 0);
+    const IS_LONG_CONTEXT = totalLength > 100000; // ~25k tokens
+
+    let contextString = "";
+
+    if (IS_LONG_CONTEXT) {
+      // Map Step: Summarize individual papers first
+      const summaries = await Promise.all(items.map(async (item) => {
+        try {
+          const content = item.fullText || item.notes || item.title;
+          const res = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Summarize this academic paper in 200 words, focusing on methodology and key findings. Title: ${item.title}. Content: ${content.substring(0, 20000)}`
+          });
+          return `Source: ${item.author} (${item.year})\nSummary: ${res.text}`;
+        } catch (e) {
+          return `Source: ${item.author} (${item.year})\nSummary: (Could not analyze)`;
+        }
+      }));
+      contextString = summaries.join('\n\n---\n\n');
+    } else {
+      // Direct context
+      contextString = items.map(item => 
+        `Source ID: ${item.id}\nCitation: ${item.author} (${item.year})\nTitle: ${item.title}\nContent/Notes: ${item.fullText || item.notes || "No content available."}`
+      ).join('\n\n---\n\n');
+    }
+
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview', // Better reasoning for synthesis
+        contents: `${PROMPT_TEMPLATE}\n\nSources:\n${contextString}`,
+        config: { thinkingConfig: { thinkingBudget: 1024 } } // Use thinking for better structure
+      });
+      return response.text || "Analysis failed.";
+    } catch (error) {
+      console.error("Synthesis error", error);
+      return "An error occurred while generating the synthesis. Please try selecting fewer papers.";
+    }
   },
 
   rewriteText: async (text: string, mode: 'paraphrase' | 'expand' | 'shorten'): Promise<string> => {

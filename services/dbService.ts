@@ -1,10 +1,11 @@
 
 import { supabase } from '@/lib/supabase';
-import { Document, LibraryItem } from '@/types';
+import { Document, LibraryItem, Annotation } from '@/types';
 
 const DEMO_USER_ID = 'user_123'; 
 const LOCAL_DOCS_KEY = 'thesisai_documents';
 const LOCAL_LIB_KEY = 'thesisai_library';
+const LOCAL_ANNOTATIONS_KEY = 'thesisai_annotations';
 
 // Helper to get local data safely
 const getLocalDocs = (): Document[] => {
@@ -43,6 +44,42 @@ const saveLocalLib = (items: LibraryItem[]) => {
   } catch (e) {
     console.error("Local storage save failed", e);
   }
+};
+
+const getLocalAnnotations = (): Annotation[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(LOCAL_ANNOTATIONS_KEY);
+    return stored ? JSON.parse(stored).map((a: any) => ({...a, createdAt: new Date(a.createdAt)})) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveLocalAnnotations = (items: Annotation[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LOCAL_ANNOTATIONS_KEY, JSON.stringify(items));
+  } catch (e) {
+    console.error("Local storage save failed", e);
+  }
+};
+
+// Cosine similarity for local fallback
+const cosineSimilarity = (vecA: number[], vecB: number[]) => {
+    if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+    let dotProduct = 0;
+    let magnitudeA = 0;
+    let magnitudeB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        magnitudeA += vecA[i] * vecA[i];
+        magnitudeB += vecB[i] * vecB[i];
+    }
+    magnitudeA = Math.sqrt(magnitudeA);
+    magnitudeB = Math.sqrt(magnitudeB);
+    if (magnitudeA === 0 || magnitudeB === 0) return 0;
+    return dotProduct / (magnitudeA * magnitudeB);
 };
 
 export const dbService = {
@@ -177,7 +214,9 @@ export const dbService = {
         isFavorite: i.is_favorite,
         addedDate: new Date(i.added_date),
         folderId: i.folder_id,
-        raw: i.raw || ''
+        raw: i.raw || '',
+        fullText: i.full_text || '',
+        embedding: i.embedding || undefined
       }));
     } catch (error) {
       console.warn('Supabase library fetch failed (using local fallback):', JSON.stringify(error));
@@ -210,6 +249,8 @@ export const dbService = {
         added_date: item.addedDate.toISOString(),
         folder_id: item.folderId,
         raw: item.raw,
+        full_text: item.fullText,
+        embedding: item.embedding,
         user_id: DEMO_USER_ID
       };
       await supabase.from('library_items').upsert(payload);
@@ -231,6 +272,7 @@ export const dbService = {
       const payload: any = {};
       if (updates.readStatus) payload.read_status = updates.readStatus;
       if (updates.isFavorite !== undefined) payload.is_favorite = updates.isFavorite;
+      if (updates.embedding !== undefined) payload.embedding = updates.embedding;
       
       if (Object.keys(payload).length > 0) {
         await supabase
@@ -250,5 +292,105 @@ export const dbService = {
       try {
         await supabase.from('library_items').delete().eq('id', id);
       } catch (e) {}
+  },
+
+  // --- Semantic Search ---
+
+  async searchSimilarLibraryItems(queryEmbedding: number[]): Promise<LibraryItem[]> {
+      // 1. Try Remote RPC (pgvector)
+      try {
+          const { data, error } = await supabase.rpc('match_library_items', {
+              query_embedding: queryEmbedding,
+              match_threshold: 0.5,
+              match_count: 10
+          });
+
+          if (!error && data) {
+              return data.map((i: any) => ({
+                  id: i.id,
+                  type: i.type,
+                  author: i.author,
+                  year: i.year,
+                  title: i.title,
+                  source: i.source,
+                  formatted: i.formatted,
+                  tags: i.tags || [],
+                  pdfUrl: i.pdf_url,
+                  readStatus: i.read_status,
+                  isFavorite: i.is_favorite,
+                  addedDate: new Date(i.added_date),
+                  folderId: i.folder_id,
+                  raw: i.raw || '',
+                  fullText: i.full_text,
+                  similarity: i.similarity
+              }));
+          }
+      } catch (e) {
+          console.warn("RPC vector search failed, falling back to local cosine similarity.", e);
+      }
+
+      // 2. Local Fallback (Brute force for demo purposes)
+      const items = getLocalLib();
+      const scoredItems = items.map(item => {
+          if (!item.embedding) return { ...item, similarity: 0 };
+          return { ...item, similarity: cosineSimilarity(queryEmbedding, item.embedding) };
+      });
+
+      // Filter and sort
+      return scoredItems
+          .filter(item => (item.similarity || 0) > 0.3)
+          .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
+          .slice(0, 10);
+  },
+
+  // --- Annotations ---
+
+  async getAnnotations(paperId: string): Promise<Annotation[]> {
+    // Local fallback priority for demo speed
+    const all = getLocalAnnotations();
+    const filtered = all.filter(a => a.paperId === paperId);
+    
+    // Attempt remote fetch in background (mock implementation would go here)
+    // For now, rely on local state for speed in this demo
+    return filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  },
+
+  async saveAnnotation(annotation: Annotation): Promise<void> {
+    const all = getLocalAnnotations();
+    const index = all.findIndex(a => a.id === annotation.id);
+    
+    if (index >= 0) {
+        all[index] = annotation;
+    } else {
+        all.push(annotation);
+    }
+    saveLocalAnnotations(all);
+
+    // Remote Sync (Fire and forget)
+    try {
+        const payload = {
+            id: annotation.id,
+            paper_id: annotation.paperId,
+            user_id: annotation.userId,
+            type: annotation.type,
+            content: annotation.content,
+            color: annotation.color,
+            position: annotation.position,
+            created_at: annotation.createdAt.toISOString(),
+            status: annotation.status
+        };
+        await supabase.from('annotations').upsert(payload);
+    } catch (e) {
+        // Silent fail for offline/demo
+    }
+  },
+
+  async deleteAnnotation(id: string): Promise<void> {
+    const all = getLocalAnnotations().filter(a => a.id !== id);
+    saveLocalAnnotations(all);
+    
+    try {
+        await supabase.from('annotations').delete().eq('id', id);
+    } catch(e) {}
   }
 };

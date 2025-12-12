@@ -97,6 +97,26 @@ export interface LibraryItem extends Reference {
   folderId?: string;
   isFavorite: boolean;
   addedDate: Date;
+  fullText?: string;
+  similarity?: number; // 0-1 score for semantic search relevance
+  embedding?: number[]; // Vector embedding for local simulation
+}
+
+export interface Annotation {
+  id: string;
+  paperId: string;
+  userId: string;
+  type: 'highlight' | 'comment' | 'question' | 'note';
+  content: string;
+  color?: 'yellow' | 'green' | 'blue' | 'red';
+  position: {
+    page: number;
+    x?: number;
+    y?: number;
+    quote?: string;
+  };
+  createdAt: Date;
+  status: 'active' | 'resolved';
 }
 
 export interface LibraryFolder {
@@ -164,5 +184,7 @@ export enum View {
   TOOLKIT = 'TOOLKIT',
   PRICING = 'PRICING',
   HELP = 'HELP',
-  JOURNAL_MATCHER = 'JOURNAL_MATCHER'
+  JOURNAL_MATCHER = 'JOURNAL_MATCHER',
+  SYNTHESIS = 'SYNTHESIS',
+  PAPER_EDITOR = 'PAPER_EDITOR'
 }
