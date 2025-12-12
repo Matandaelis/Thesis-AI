@@ -2,7 +2,7 @@
 'use server';
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate, Journal, ValidationReport, AnalyticsReport } from "@/types";
+import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate, Journal, ValidationReport, AnalyticsReport, University } from "@/types";
 
 // Helper to initialize AI client lazily to avoid build-time errors
 function getAIClient() {
@@ -130,27 +130,36 @@ export async function filterDocumentsAction(query: string, docsMetadata: any[]):
   }
 }
 
-export async function analyzeTextAction(text: string, universityName: string): Promise<any[]> {
+export async function analyzeTextAction(text: string, university: University | null): Promise<any[]> {
   if (!text || text.length < 10) return [];
   const ai = getAIClient();
 
+  const standards = university?.standards || { citationStyle: 'APA 7th', font: 'Times New Roman', size: '12', spacing: 'Double' };
+  const uniName = university?.name || 'Standard Academic';
+
   const prompt = `
-    You are an expert academic thesis editor specializing in Kenyan university standards (e.g., ${universityName}). 
-    Analyze the following text snippet from a student's thesis.
-    Focus on:
-    1. Formal Academic Tone (British English preference).
-    2. Clarity and Conciseness.
-    3. Passive voice overuse.
-    4. Adherence to generic academic standards (APA 7th style).
+    You are an expert academic thesis editor specializing in ${uniName} standards. 
+    
+    Active Standards for this document:
+    - Citation Style: ${standards.citationStyle} (Strictly enforce this style)
+    - Font/Formatting rules: ${standards.font} size ${standards.size}, ${standards.spacing} spacing.
+    - Tone: Formal Academic English (UK/British spelling preferred for Kenyan universities).
+
+    Analyze the following text snippet. Return specific, actionable suggestions.
+    
+    Focus strictly on:
+    1. **Citation Compliance**: Does the text use ${standards.citationStyle} correctly? (e.g. check for 'et al.' usage, comma placement, date format).
+    2. **Academic Tone**: Flag informal words, contractions (don't, can't), or subjective language ("I feel", "huge").
+    3. **Clarity**: Flag long, convoluted sentences or passive voice overuse.
     
     Return a JSON array of suggestions.
     Each suggestion must have:
-    - type: "grammar" | "style" | "clarity"
+    - type: "grammar" | "style" | "citation" | "clarity"
     - originalText: the exact substring from the text that needs changing.
     - suggestion: the proposed replacement or advice.
-    - explanation: a brief reason why.
+    - explanation: a brief reason why, specifically referencing ${standards.citationStyle} rules where applicable.
 
-    Text to analyze: "${text}"
+    Text to analyze: "${text.substring(0, 10000)}"
   `;
 
   try {
@@ -634,7 +643,7 @@ export async function generateLiteratureMatrixAction(topic: string): Promise<str
         Create a Markdown table with 5 hypothetical but realistic academic sources (or real ones if you know them).
         Columns: Author(Year), Methodology, Key Findings, Research Gaps.
       `,
-      config: { thinkingConfig: { thinkingBudget: 4096 } }
+      config: { thinkingConfig: { thinkingBudget: 32768 } }
     });
     return response.text || "Failed to generate matrix.";
   } catch (e) { return "Error"; }
@@ -660,7 +669,7 @@ export async function checkScientificPaperAction(content: string): Promise<strin
         
         Content: "${content.substring(0, 30000)}"
       `,
-      config: { thinkingConfig: { thinkingBudget: 4096 } }
+      config: { thinkingConfig: { thinkingBudget: 32768 } }
     });
     return response.text || "Failed to check paper.";
   } catch (e) { return "Error checking paper."; }
@@ -738,7 +747,7 @@ export async function generateStudyScheduleAction(topic: string, startDate: stri
                   }
               }
           },
-          thinkingConfig: { thinkingBudget: 2048 }
+          thinkingConfig: { thinkingBudget: 32768 }
       }
     });
     return JSON.parse(response.text || '[]');
@@ -770,6 +779,7 @@ export async function runGenericToolAction(toolId: string, input: string): Promi
   let prompt = '';
   let model = 'gemini-2.5-flash';
   let toolsConfig = undefined;
+  let thinkingConfig = undefined;
 
   // Replicate switch logic from original service
   switch (toolId) {
@@ -781,9 +791,17 @@ export async function runGenericToolAction(toolId: string, input: string): Promi
     case 't6': prompt = `Analyze this text for originality. Highlight clichéd phrases, overused academic tropes, or sections that sound generic. Suggest ways to make the voice more unique.\n\nText: "${input}"`; break;
     case 't7': prompt = `Paraphrase the following text to improve clarity and originality, ensuring the meaning remains unchanged. suitable for a thesis:\n\n"${input}"`; break;
     case 't8': prompt = `Convert the following mathematical expression or text into valid LaTeX code:\n\n"${input}"`; break;
-    case 't9': prompt = `Critique the logical strength of the following argument. Identify fallacies, weak premises, or unsupported claims:\n\n"${input}"`; model = 'gemini-3-pro-preview'; break;
+    case 't9': 
+        prompt = `Critique the logical strength of the following argument. Identify fallacies, weak premises, or unsupported claims:\n\n"${input}"`; 
+        model = 'gemini-3-pro-preview'; 
+        thinkingConfig = { thinkingBudget: 32768 };
+        break;
     case 't10': prompt = `Generate 3 strong, arguable thesis statements based on this topic or problem description:\n\n"${input}"`; break;
-    case 't12': prompt = `Outline a robust research methodology for the following study topic. Include research design, population, sampling, and data analysis techniques:\n\nTopic: "${input}"`; model = 'gemini-3-pro-preview'; break;
+    case 't12': 
+        prompt = `Outline a robust research methodology for the following study topic. Include research design, population, sampling, and data analysis techniques:\n\nTopic: "${input}"`; 
+        model = 'gemini-3-pro-preview'; 
+        thinkingConfig = { thinkingBudget: 32768 };
+        break;
     case 't13': prompt = `Format the following raw reference information into perfect APA 7th Edition citations:\n\n"${input}"`; break;
     case 't14': prompt = `Create a 10-item questionnaire/survey for a study on: "${input}". Ensure questions are neutral and academically sound.`; break;
     case 't15': prompt = `Generate a research ethics checklist for a study involving: "${input}". Highlight potential risks and required consents.`; break;
@@ -804,6 +822,7 @@ export async function runGenericToolAction(toolId: string, input: string): Promi
       contents: prompt,
       config: {
         tools: toolsConfig,
+        thinkingConfig: thinkingConfig
       }
     });
     return response.text || "No response generated.";

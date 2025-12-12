@@ -81,6 +81,46 @@
 
       @keyframes fade-in-down { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
       .animate-fade-in-down { animation: fade-in-down 0.2s ease-out forwards; }
+
+      /* Tiptap Table Styles */
+      .ProseMirror table {
+        border-collapse: collapse;
+        table-layout: fixed;
+        width: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      .ProseMirror td,
+      .ProseMirror th {
+        min-width: 1em;
+        border: 2px solid #ced4da;
+        padding: 3px 5px;
+        vertical-align: top;
+        box-sizing: border-box;
+        position: relative;
+      }
+      .ProseMirror th {
+        font-weight: bold;
+        text-align: left;
+        background-color: #f1f3f5;
+      }
+      .ProseMirror .selectedCell:after {
+        z-index: 2;
+        position: absolute;
+        content: "";
+        left: 0; right: 0; top: 0; bottom: 0;
+        background: rgba(200, 200, 255, 0.4);
+        pointer-events: none;
+      }
+      .ProseMirror .column-resize-handle {
+        position: absolute;
+        right: -2px;
+        top: 0;
+        bottom: -2px;
+        width: 4px;
+        background-color: #adf;
+        pointer-events: none;
+      }
     </style>
     <script type="application/ld+json">
     {
@@ -109,16 +149,25 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.560.0",
     "recharts": "https://esm.sh/recharts@^3.5.1",
     "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
-    "@tiptap/react": "https://esm.sh/@tiptap/react@^3.13.0",
-    "@tiptap/starter-kit": "https://esm.sh/@tiptap/starter-kit@^3.13.0",
-    "@tiptap/extension-placeholder": "https://esm.sh/@tiptap/extension-placeholder@^3.13.0",
+    "@tiptap/react": "https://esm.sh/@tiptap/react@^2.2.4",
+    "@tiptap/starter-kit": "https://esm.sh/@tiptap/starter-kit@^2.2.4",
+    "@tiptap/extension-placeholder": "https://esm.sh/@tiptap/extension-placeholder@^2.2.4",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.1",
-    "@tiptap/extension-highlight": "https://esm.sh/@tiptap/extension-highlight@^3.13.0",
-    "@tiptap/extension-text-align": "https://esm.sh/@tiptap/extension-text-align@^3.13.0",
-    "@tiptap/extension-underline": "https://esm.sh/@tiptap/extension-underline@^3.13.0",
+    "@tiptap/extension-highlight": "https://esm.sh/@tiptap/extension-highlight@^2.2.4",
+    "@tiptap/extension-text-align": "https://esm.sh/@tiptap/extension-text-align@^2.2.4",
+    "@tiptap/extension-underline": "https://esm.sh/@tiptap/extension-underline@^2.2.4",
     "paperlib-api/": "https://esm.sh/paperlib-api@^0.1.11/",
-    "@tiptap/extension-character-count": "https://esm.sh/@tiptap/extension-character-count@^3.13.0",
-    "@tiptap/extension-typography": "https://esm.sh/@tiptap/extension-typography@^3.13.0"
+    "@tiptap/extension-character-count": "https://esm.sh/@tiptap/extension-character-count@^2.2.4",
+    "@tiptap/extension-typography": "https://esm.sh/@tiptap/extension-typography@^2.2.4",
+    "@tiptap/extension-image": "https://esm.sh/@tiptap/extension-image@^2.2.4",
+    "@tiptap/extension-link": "https://esm.sh/@tiptap/extension-link@^2.2.4",
+    "@tiptap/extension-table": "https://esm.sh/@tiptap/extension-table@^2.2.4",
+    "@tiptap/extension-table-row": "https://esm.sh/@tiptap/extension-table-row@^2.2.4",
+    "@tiptap/extension-table-cell": "https://esm.sh/@tiptap/extension-table-cell@^2.2.4",
+    "@tiptap/extension-table-header": "https://esm.sh/@tiptap/extension-table-header@^2.2.4",
+    "@tiptap/extension-text-style": "https://esm.sh/@tiptap/extension-text-style@^2.2.4",
+    "@tiptap/extension-color": "https://esm.sh/@tiptap/extension-color@^2.2.4",
+    "@tiptap/extension-font-family": "https://esm.sh/@tiptap/extension-font-family@^2.2.4"
   }
 }
 </script>
