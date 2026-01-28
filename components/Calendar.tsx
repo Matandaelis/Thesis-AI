@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Plus, Video, MapPin, Clock, 
   Flag, AlertCircle, CheckCircle2, Trash2, X, Calendar as CalendarIcon,
@@ -111,12 +111,26 @@ export const Calendar: React.FC = () => {
     setEvents(events.map(e => e.id === id ? { ...e, completed: !e.completed } : e));
   };
 
+  const eventsByDay = useMemo(() => {
+    const map = new Map<number, CalendarEvent[]>();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    events.forEach(e => {
+      if (e.date.getMonth() === currentMonth &&
+          e.date.getFullYear() === currentYear) {
+        const day = e.date.getDate();
+        if (!map.has(day)) {
+          map.set(day, []);
+        }
+        map.get(day)!.push(e);
+      }
+    });
+    return map;
+  }, [events, currentDate]);
+
   const getEventsForDay = (day: number) => {
-    return events.filter(e => 
-      e.date.getDate() === day && 
-      e.date.getMonth() === currentDate.getMonth() && 
-      e.date.getFullYear() === currentDate.getFullYear()
-    );
+    return eventsByDay.get(day) || [];
   };
 
   const getUpcomingEvents = () => {
