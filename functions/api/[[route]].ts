@@ -119,6 +119,54 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         await env.DB.prepare('DELETE FROM library_items WHERE id = ?').bind(id).run();
         return Response.json({ success: true });
       }
+
+      if (method === 'PATCH') {
+        const id = url.searchParams.get('id');
+        if (!id) return new Response('Missing ID', { status: 400 });
+
+        const body: any = await request.json();
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        // Mapping and Validation
+        const map: Record<string, string> = {
+            type: 'type',
+            author: 'author',
+            year: 'year',
+            title: 'title',
+            source: 'source',
+            formatted: 'formatted',
+            pdfUrl: 'pdf_url',
+            readStatus: 'read_status',
+            isFavorite: 'is_favorite',
+            folderId: 'folder_id',
+            raw: 'raw',
+            fullText: 'full_text',
+        };
+
+        for (const [key, val] of Object.entries(body)) {
+            if (map[key]) {
+                updates.push(`${map[key]} = ?`);
+                values.push(key === 'isFavorite' ? (val ? 1 : 0) : val);
+            } else if (key === 'tags') {
+                updates.push('tags = ?');
+                values.push(JSON.stringify(val || []));
+            } else if (key === 'embedding') {
+                updates.push('embedding = ?');
+                values.push(val ? JSON.stringify(val) : null);
+            }
+        }
+
+        if (updates.length === 0) return Response.json({ success: true }); // Nothing to update
+
+        values.push(id);
+
+        await env.DB.prepare(`UPDATE library_items SET ${updates.join(', ')} WHERE id = ?`)
+            .bind(...values)
+            .run();
+
+        return Response.json({ success: true });
+      }
     }
 
     // --- Annotations Endpoints ---

@@ -125,18 +125,14 @@ export const dbService = {
   },
 
   async updateLibraryItem(id: string, updates: Partial<LibraryItem>): Promise<void> {
-    // D1 API currently expects full object for UPSERT simplicity, or we map specific fields.
-    // For simplicity in this demo, we re-fetch locally/merge or send sparse update if API supports it.
-    // Here we will just send the updates assuming the API handles it (We added specific field handling in API)
-    // Actually, our simple API example uses UPSERT which requires all fields or existing ones.
-    // A robust impl would fetch first or add specific PATCH endpoints. 
-    // We will attempt to merge with local state and send full object.
-    
-    const items = await this.getLibrary(); // Or get from state
-    const item = items.find(i => i.id === id);
-    if (item) {
-        const updated = { ...item, ...updates };
-        await this.addToLibrary(updated);
+    try {
+      await fetch(`/api/library?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+    } catch (e) {
+      console.error("Failed to update library item", e);
     }
   },
   
