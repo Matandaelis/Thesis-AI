@@ -1,14 +1,28 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    height: 100%;
+  }
+
   body {
-    @apply bg-slate-50 text-slate-900;
+    @apply bg-slate-50 text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden antialiased h-full;
+  }
+
+  #root {
+    @apply h-full;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif tracking-tight text-slate-900;
   }
 }
 
+/* Custom Scrollbar for Webkit - Standard Utility override */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -17,7 +31,7 @@
   @apply bg-transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full hover:bg-slate-400;
+  @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -28,34 +42,16 @@
   scrollbar-width: none;
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* Prose overrides */
+.prose {
+  @apply text-slate-700 leading-relaxed;
 }
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out forwards;
+.prose h1, .prose h2, .prose h3 {
+  @apply text-slate-900 font-serif;
 }
-
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.prose strong {
+  @apply text-slate-900;
 }
-.animate-fade-in-up {
-  animation: fade-in-up 0.5s ease-out forwards;
-}
-
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-.animate-scale-in {
-  animation: scale-in 0.2s ease-out forwards;
-}
-
-@keyframes fade-in-down {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in-down {
-  animation: fade-in-down 0.2s ease-out forwards;
+.prose a {
+  @apply text-blue-600 no-underline hover:underline;
 }

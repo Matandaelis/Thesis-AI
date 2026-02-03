@@ -1,168 +1,211 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { ResearchResponse, ResearchLink, ChartData, Reference, UniversityUpdate, Journal, ValidationReport, AnalyticsReport, University, LibraryItem } from "@/types";
+import { 
+  ResearchLink, 
+  Journal, 
+  ValidationReport, 
+  AnalyticsReport, 
+  LibraryItem,
+  WebResearchResponse
+} from "../types";
 
-// Helper to initialize AI client
-function getAIClient() {
-  // Check for various environment variable patterns (Vite standard, Process env polyfill)
-  const metaEnv = (import.meta as any).env || {};
-  const processEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
-
-  const apiKey = 
-    metaEnv.VITE_GEMINI_API_KEY || 
-    metaEnv.VITE_API_KEY || 
-    processEnv.GEMINI_API_KEY || 
-    processEnv.API_KEY;
-
-  if (!apiKey) {
-    console.warn("VITE_GEMINI_API_KEY or VITE_API_KEY environment variable is missing.");
-  }
-  return new GoogleGenAI({ apiKey: apiKey || '' });
-}
-
+/**
+ * Service to interact with Google Gemini models.
+ * Strictly adheres to @google/genai coding guidelines.
+ */
 export const GeminiService = {
-  testConnection: async (): Promise<{ success: boolean; message: string }> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: 'Reply with "OK" if connected.',
-      });
-      return { success: true, message: response.text || "Connected (No text returned)" };
-    } catch (error: any) {
-      console.error("Gemini Test Error", error);
-      return { success: false, message: error.message || "Connection failed" };
-    }
-  },
+  
+  /**
+   * Internal helper to get a fresh AI instance.
+   * Required to prevent race conditions during API Key selection for Veo models.
+   */
+  _getAI: () => new GoogleGenAI({ apiKey: process.env.API_KEY }),
 
-  embedText: async (text: string): Promise<number[]> => {
+  testConnection: async () => {
     try {
-      const ai = getAIClient();
-      const response = await ai.models.embedContent({
-        model: 'text-embedding-004',
-        content: { parts: [{ text }] }
+      const ai = GeminiService._getAI();
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: 'Hello, confirm connection status.',
       });
-      return response.embedding?.values || [];
+      return { success: !!response.text, message: response.text || "Connected" };
     } catch (error) {
-      console.error("Embedding Error", error);
-      return [];
+      console.error("Gemini Connection Error:", error);
+      return { success: false, message: "Connection Failed" };
     }
   },
 
-  validateResearch: async (text: string): Promise<ValidationReport> => {
-    const ai = getAIClient();
+  /**
+   * NL Web Capability: Search the web with grounding for academic tasks.
+   */
+  searchWebAcademic: async (query: string): Promise<WebResearchResponse> => {
+    const ai = GeminiService._getAI();
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `
-          You are an academic auditor and fact-checker. Analyze the following academic text for three pillars of validity:
-          
-          1. **Fact-Checking**: Identify specific claims, statistics, or historical assertions. Verify them against general knowledge and real-time information. Flag dubious or unsupported claims.
-          2. **Academic Integrity**: Check for citation gaps (claims without references), potential plagiarism (generic/clichéd phrasing), and correct attribution.
-          3. **Quality Metrics**: Evaluate coherence, flow, argument strength, and methodology appropriateness.
-
-          Text to validate:
-          "${text.substring(0, 15000)}"
-
-          Return a strictly valid JSON object adhering to this schema:
-          {
-            "factScore": number (0-100),
-            "integrityScore": number (0-100),
-            "qualityScore": number (0-100),
-            "summary": string (A brief executive summary of the validation),
-            "issues": [
-              {
-                "category": "fact" | "integrity" | "quality",
-                "severity": "high" | "medium" | "low",
-                "text": "The specific substring in the text causing the issue",
-                "issue": "Description of the problem (e.g., 'Unsupported statistical claim')",
-                "recommendation": "How to fix it (e.g., 'Add a citation to a 2023 study')"
-              }
-            ]
-          }
-        `,
+        model: 'gemini-3-flash-preview',
+        contents: `Research task: ${query}. Focus on academic sources, official institutional guidelines, and peer-reviewed data.`,
         config: {
-          tools: [{ googleSearch: {} }],
-          // responseMimeType and responseSchema cannot be used with tools
+          tools: [{ googleSearch: {} }]
         }
       });
 
-      let jsonString = response.text || '{}';
-      // Clean up markdown code blocks if the model includes them
-      jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+      const text = response.text || "No synthesis available.";
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       
-      let data;
-      try {
-        data = JSON.parse(jsonString);
-      } catch (e) {
-        console.error("Failed to parse validation JSON", e);
-        // Fallback for empty or malformed JSON
-        data = { factScore: 0, integrityScore: 0, qualityScore: 0, summary: "Could not parse analysis results.", issues: [] };
-      }
-      
-      data.issues = data.issues?.map((issue: any, index: number) => ({
-          ...issue,
-          id: `val-${Date.now()}-${index}`
-      })) || [];
+      const sources: ResearchLink[] = chunks
+        .filter(chunk => chunk.web)
+        .map(chunk => ({
+          title: chunk.web?.title || "External Source",
+          uri: chunk.web?.uri || ""
+        }));
 
-      return data as ValidationReport;
+      return { answer: text, sources };
     } catch (error) {
-      console.error("Validation Error", error);
-      return {
-        factScore: 0,
-        integrityScore: 0,
-        qualityScore: 0,
-        summary: "Error running validation checks.",
-        issues: []
-      };
+      console.error("Web grounded search failed:", error);
+      return { answer: "I encountered an error searching the web. Please try again.", sources: [] };
     }
   },
 
-  filterDocuments: async (query: string, docsMetadata: any[]): Promise<string[]> => {
+  /**
+   * Multimodal: Generate images for thesis diagrams.
+   */
+  generateImage: async (prompt: string): Promise<string | null> => {
+    const ai = GeminiService._getAI();
     try {
-      const ai = getAIClient();
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `
-          You are an intelligent document search engine.
-          User Query: "${query}"
-          
-          Available Documents (Metadata):
-          ${JSON.stringify(docsMetadata)}
-          
-          Instructions:
-          1. Interpret the user's intent.
-          2. Select the IDs of documents that match this intent.
-          3. Return strictly a JSON array of strings (the IDs).
-        `,
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [{ text: `High-quality, professional academic figure or conceptual diagram: ${prompt}` }]
+        },
+        config: { imageConfig: { aspectRatio: "16:9" } }
+      });
+
+      for (const part of response.candidates?.[0].content.parts || []) {
+        if (part.inlineData) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Image generation error:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Multimodal: Generate cinematic scientific visualizations.
+   */
+  generateVideo: async (prompt: string, onProgress: (status: string) => void): Promise<string | null> => {
+    const ai = GeminiService._getAI();
+    try {
+      onProgress("Contacting Veo engines...");
+      let operation = await ai.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: `A professional scientific visualization or research animation: ${prompt}`,
         config: {
+          numberOfVideos: 1,
+          resolution: '1080p',
+          aspectRatio: '16:9'
+        }
+      });
+
+      onProgress("Veo is synthesizing frames (this takes ~1-3 minutes)...");
+      while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        operation = await ai.operations.getVideosOperation({ operation: operation });
+      }
+
+      const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+      if (!downloadLink) throw new Error("No download link received");
+
+      onProgress("Downloading final asset...");
+      const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+      if (!videoResponse.ok) throw new Error("Failed to fetch video bytes");
+      
+      const blob = await videoResponse.blob();
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error("Video generation failed:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Perform deep structural and factual validation of a research text.
+   */
+  validateResearch: async (text: string): Promise<ValidationReport> => {
+    const ai = GeminiService._getAI();
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: `Audit this academic text for factual consistency, integrity, and quality: "${text.substring(0, 10000)}"`,
+        config: {
+          thinkingConfig: { thinkingBudget: 32768 },
           responseMimeType: 'application/json',
           responseSchema: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
+            type: Type.OBJECT,
+            properties: {
+              factScore: { type: Type.NUMBER },
+              integrityScore: { type: Type.NUMBER },
+              qualityScore: { type: Type.NUMBER },
+              summary: { type: Type.STRING },
+              issues: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    severity: { type: Type.STRING },
+                    text: { type: Type.STRING },
+                    issue: { type: Type.STRING },
+                    recommendation: { type: Type.STRING }
+                  }
+                }
+              }
+            }
           }
         }
       });
-      return JSON.parse(response.text || '[]');
+      const data = JSON.parse(response.text || '{}');
+      return {
+        ...data,
+        issues: data.issues?.map((i: any, idx: number) => ({ ...i, id: `v-${idx}` })) || []
+      };
     } catch (error) {
-      console.error("AI Filter Error", error);
-      return [];
+      console.error("Validation error:", error);
+      return { factScore: 0, integrityScore: 0, qualityScore: 0, summary: "Audit failed.", issues: [] };
     }
   },
 
-  analyzeText: async (text: string, university: University | null): Promise<any[]> => {
-    if (!text || text.length < 10) return [];
-    const ai = getAIClient();
-    const standards = university?.standards || { citationStyle: 'APA 7th', font: 'Times New Roman', size: '12', spacing: 'Double' };
-    
+  chatWithDocument: async (message: string, context: string, history: any[]) => {
+    const ai = GeminiService._getAI();
+    const chat = ai.chats.create({
+      model: 'gemini-3-flash-preview',
+      config: {
+        systemInstruction: `You are an expert PhD supervisor. Provide specific, citation-driven feedback. Context: ${context.substring(0, 20000)}`
+      },
+      history: history.map(h => ({ role: h.role, parts: [{ text: h.text }] }))
+    });
+    const result = await chat.sendMessage({ message });
+    return result.text || "I was unable to process your question.";
+  },
+
+  synthesizeLibraryItems: async (items: LibraryItem[], mode: 'thematic' | 'draft') => {
+    const ai = GeminiService._getAI();
+    const prompt = `Perform a ${mode} synthesis of these papers: ${items.map(i => `${i.title} (${i.author}, ${i.year})`).join('; ')}`;
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: { thinkingConfig: { thinkingBudget: 32768 } }
+    });
+    return response.text || "Synthesis failed.";
+  },
+
+  checkUniversityUpdates: async (universityName: string) => {
+    const ai = GeminiService._getAI();
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `
-          Analyze for ${standards.citationStyle}, academic tone, and clarity.
-          Text: "${text.substring(0, 10000)}"
-          Return JSON array of suggestions (type, originalText, suggestion, explanation).
-        `,
+        model: 'gemini-3-flash-preview',
+        contents: `Latest 2024-2025 academic updates for ${universityName}. Include policy shifts, formatting changes, and deadlines.`,
         config: {
           responseMimeType: 'application/json',
           responseSchema: {
@@ -170,331 +213,37 @@ export const GeminiService = {
             items: {
               type: Type.OBJECT,
               properties: {
+                title: { type: Type.STRING },
+                description: { type: Type.STRING },
+                date: { type: Type.STRING },
                 type: { type: Type.STRING },
-                originalText: { type: Type.STRING },
-                suggestion: { type: Type.STRING },
-                explanation: { type: Type.STRING },
-              },
-            },
-          },
-        },
-      });
-      return JSON.parse(response.text || '[]');
-    } catch (error) {
-      return [];
-    }
-  },
-
-  deepCritique: async (text: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `Critique logic and argumentation. Text: "${text.substring(0, 30000)}"`,
-        config: { thinkingConfig: { thinkingBudget: 32768 } }
-      });
-      return response.text || "Unable to generate critique.";
-    } catch (e) { return "Error generating deep critique."; }
-  },
-
-  researchTopic: async (query: string): Promise<ResearchResponse> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Find academic sources about: ${query}`,
-        config: { tools: [{ googleSearch: {} }] },
-      });
-
-      const rawLinks = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-        ?.map((chunk: any) => chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null)
-        .filter((l: any) => l !== null) as ResearchLink[] || [];
-
-      const uniqueLinks = Array.from(new Map(rawLinks.map(link => [link.uri, link])).values());
-
-      return { content: response.text || 'No results.', links: uniqueLinks };
-    } catch (error) { return { content: "Research failed.", links: [] }; }
-  },
-
-  checkUniversityUpdates: async (universityName: string): Promise<UniversityUpdate[]> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Find 2024-2025 thesis updates for ${universityName}. Return JSON array.`,
-        config: { tools: [{ googleSearch: {} }] }
-      });
-      let jsonString = response.text || '[]';
-      jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-      const updates = JSON.parse(jsonString);
-      return updates.map((u: any, i: number) => ({
-          ...u,
-          id: Date.now().toString() + i,
-          universityId: universityName.toLowerCase().replace(/\s/g, ''),
-          universityName,
-          date: new Date()
-      }));
-    } catch (error) {
-      return [{
-          id: 'error',
-          universityId: 'unknown',
-          universityName,
-          date: new Date(),
-          title: 'Could not fetch updates',
-          description: 'Check official website.',
-          type: 'policy'
-      }];
-    }
-  },
-
-  chatWithTutor: async (message: string, context: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `Context: "${context.substring(0, 10000)}..." Question: "${message}"`,
-        config: { thinkingConfig: { thinkingBudget: 32768 } }
-      });
-      return response.text || "No response.";
-    } catch (error) { return "Error connecting."; }
-  },
-
-  chatWithDocument: async (message: string, documentText: string, history: {role: string, text: string}[]): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: {
-          systemInstruction: `You are a research assistant. Answer questions strictly based on the provided academic paper text. If the answer is not in the text, say so. Keep answers concise and academic. Paper Content: "${documentText.substring(0, 50000)}"`
-        },
-        history: history.map(h => ({
-          role: h.role,
-          parts: [{ text: h.text }]
-        }))
-      });
-      
-      const response = await chat.sendMessage({ message });
-      return response.text || "I couldn't process that request.";
-    } catch (error) {
-      console.error("Chat with doc error", error);
-      return "Error connecting to AI service.";
-    }
-  },
-
-  // --- SYNTHESIS & MAP REDUCE ---
-  synthesizeLibraryItems: async (items: LibraryItem[], mode: 'thematic' | 'draft'): Promise<string> => {
-    if (items.length === 0) return "Please select items to synthesize.";
-    
-    const ai = getAIClient();
-    const PROMPT_TEMPLATE = mode === 'thematic' 
-      ? "You are an expert researcher. Synthesize the provided academic papers. Identify common themes, points of agreement, and points of disagreement or gaps. Output strictly in Markdown."
-      : "You are an expert academic writer. Draft a coherent 'Related Work' or 'Literature Review' section based on the provided papers. Integrate them into a narrative flow. Use citations in the format (Author, Year). Output strictly in Markdown.";
-
-    // Estimate token count roughly (4 chars per token). Limit safely to 30k tokens for context.
-    const totalLength = items.reduce((acc, item) => acc + (item.fullText?.length || 0) + (item.notes?.length || 0), 0);
-    const IS_LONG_CONTEXT = totalLength > 100000; // ~25k tokens
-
-    let contextString = "";
-
-    if (IS_LONG_CONTEXT) {
-      // Map Step: Summarize individual papers first
-      const summaries = await Promise.all(items.map(async (item) => {
-        try {
-          const content = item.fullText || item.notes || item.title;
-          const res = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Summarize this academic paper in 200 words, focusing on methodology and key findings. Title: ${item.title}. Content: ${content.substring(0, 20000)}`
-          });
-          return `Source: ${item.author} (${item.year})\nSummary: ${res.text}`;
-        } catch (e) {
-          return `Source: ${item.author} (${item.year})\nSummary: (Could not analyze)`;
-        }
-      }));
-      contextString = summaries.join('\n\n---\n\n');
-    } else {
-      // Direct context
-      contextString = items.map(item => 
-        `Source ID: ${item.id}\nCitation: ${item.author} (${item.year})\nTitle: ${item.title}\nContent/Notes: ${item.fullText || item.notes || "No content available."}`
-      ).join('\n\n---\n\n');
-    }
-
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview', // Better reasoning for synthesis
-        contents: `${PROMPT_TEMPLATE}\n\nSources:\n${contextString}`,
-        config: { thinkingConfig: { thinkingBudget: 1024 } } // Use thinking for better structure
-      });
-      return response.text || "Analysis failed.";
-    } catch (error) {
-      console.error("Synthesis error", error);
-      return "An error occurred while generating the synthesis. Please try selecting fewer papers.";
-    }
-  },
-
-  rewriteText: async (text: string, mode: 'paraphrase' | 'expand' | 'shorten'): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `${mode} this text: "${text}"`
-      });
-      return response.text || text;
-    } catch (error) { return text; }
-  },
-
-  continueWriting: async (context: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Continue writing: "${context.slice(-1000)}"`
-      });
-      return response.text || "";
-    } catch (error) { return ""; }
-  },
-
-  getSynonyms: async (word: string, context: string): Promise<string[]> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Synonyms for "${word}" in context: "${context}"`,
-        config: { responseMimeType: 'application/json', responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
-      });
-      return JSON.parse(response.text || '[]');
-    } catch (error) { return []; }
-  },
-
-  generateChartData: async (description: string): Promise<ChartData | null> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Generate Chart JSON for: "${description}"`,
-        config: { responseMimeType: 'application/json' }
-      });
-      const parsed = JSON.parse(response.text || 'null');
-      return parsed ? { ...parsed, id: Date.now().toString() } : null;
-    } catch (error) { return null; }
-  },
-
-  parseReference: async (rawText: string): Promise<Reference | null> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Parse reference: "${rawText}"`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-             type: Type.OBJECT,
-             properties: {
-                 author: { type: Type.STRING },
-                 year: { type: Type.STRING },
-                 title: { type: Type.STRING },
-                 source: { type: Type.STRING },
-                 formatted: { type: Type.STRING }
-             }
+                sourceUrl: { type: Type.STRING }
+              }
+            }
           }
         }
       });
-      const parsed = JSON.parse(response.text || 'null');
-      return parsed ? { ...parsed, id: Date.now().toString(), raw: rawText } : null;
-    } catch (e) { return null; }
-  },
-
-  findCitation: async (query: string): Promise<Reference[]> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Search academic sources for: "${query}". Return top 3 JSON array.`,
-        config: { tools: [{ googleSearch: {} }] }
-      });
-      let text = response.text || '[]';
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const arrayMatch = text.match(/\[.*\]/s);
-      if (arrayMatch) text = arrayMatch[0];
-      const results = JSON.parse(text);
-      if (Array.isArray(results)) {
-          return results.map((r: any, i: number) => ({
-              id: `web-${Date.now()}-${i}`,
-              raw: query,
-              author: r.author || 'Unknown',
-              year: r.year || 'n.d.',
-              title: r.title || 'Untitled',
-              source: r.source || 'Unknown Source',
-              formatted: r.formatted || `${r.author}. (${r.year}). ${r.title}.`,
-              url: r.url
-          }));
-      }
+      const data = JSON.parse(response.text || '[]');
+      return data.map((item: any, idx: number) => ({
+        ...item,
+        id: `upd-${Date.now()}-${idx}`,
+        universityName,
+        date: new Date(item.date)
+      }));
+    } catch (error) {
       return [];
-    } catch (error) { return []; }
-  },
-
-  generateSectionContent: async (title: string, thesisTitle: string, context: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Write section "${title}" for thesis "${thesisTitle}". Context: "${context.slice(-5000)}"`
-      });
-      return response.text || "";
-    } catch (error) { return ""; }
-  },
-
-  generateThesisOutline: async (topic: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Thesis outline for: "${topic}"`
-      });
-      return response.text || "";
-    } catch (error) { return ""; }
-  },
-
-  generateGrantProposal: async (thesisAbstract: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `Grant proposal from abstract: "${thesisAbstract}"`
-      });
-      return response.text || "Failed.";
-    } catch (e) { return "Error"; }
-  },
-
-  generateSlidesOutline: async (content: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `10-slide defense outline from: "${content.substring(0, 15000)}"`
-      });
-      return response.text || "Failed.";
-    } catch (e) { return "Error"; }
-  },
-
-  matchJournals: async (abstract: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Suggest 5 journals for: "${abstract}"`
-      });
-      return response.text || "Failed.";
-    } catch (e) { return "Error"; }
+    }
   },
 
   findJournals: async (abstract: string): Promise<Journal[]> => {
+    const ai = GeminiService._getAI();
     try {
-      const ai = getAIClient();
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Suggest 6 journals for: "${abstract.substring(0, 5000)}". Return JSON array.`,
+        model: 'gemini-3-pro-preview',
+        contents: `Suggest high-impact academic journals for this abstract: "${abstract}"`,
         config: {
-          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingBudget: 32768 },
+          responseMimeType: "application/json",
           responseSchema: {
             type: Type.ARRAY,
             items: {
@@ -503,7 +252,7 @@ export const GeminiService = {
                 name: { type: Type.STRING },
                 publisher: { type: Type.STRING },
                 impactFactor: { type: Type.STRING },
-                matchScore: { type: Type.INTEGER },
+                matchScore: { type: Type.NUMBER },
                 matchReason: { type: Type.STRING },
                 scope: { type: Type.STRING },
                 acceptanceRate: { type: Type.STRING },
@@ -515,85 +264,97 @@ export const GeminiService = {
         }
       });
       return JSON.parse(response.text || '[]');
-    } catch (e) { return []; }
-  },
-
-  generateLiteratureMatrix: async (topic: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `Literature Matrix for: "${topic}"`,
-        config: { thinkingConfig: { thinkingBudget: 32768 } }
-      });
-      return response.text || "Failed.";
-    } catch (e) { return "Error"; }
-  },
-
-  checkScientificPaper: async (content: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `Audit this paper: "${content.substring(0, 30000)}"`,
-        config: { thinkingConfig: { thinkingBudget: 32768 } }
-      });
-      return response.text || "Failed.";
-    } catch (e) { return "Error"; }
-  },
-
-  generateAnalyticsReport: async (docsSummary: string): Promise<AnalyticsReport> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Analyze stats: ${docsSummary}`,
-        config: { responseMimeType: 'application/json', responseSchema: { type: Type.OBJECT, properties: { peakPerformance: { type: Type.STRING }, academicTone: { type: Type.STRING }, goalProjection: { type: Type.STRING } } } }
-      });
-      return JSON.parse(response.text || '{}');
-    } catch (error) { return { peakPerformance: "", academicTone: "", goalProjection: "" }; }
-  },
-
-  generateStudySchedule: async (topic: string, startDate: string): Promise<any[]> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `Thesis roadmap for "${topic}" starting ${startDate}. Return JSON array.`,
-        config: { responseMimeType: 'application/json', responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.NUMBER }, name: { type: Type.STRING }, start: { type: Type.NUMBER }, duration: { type: Type.NUMBER }, status: { type: Type.STRING } } } }, thinkingConfig: { thinkingBudget: 32768 } }
-      });
-      return JSON.parse(response.text || '[]');
-    } catch (e) { return []; }
-  },
-
-  generateCitation: async (details: string): Promise<string> => {
-    try {
-      const ai = getAIClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `APA 7 citation for: "${details}"`
-      });
-      return response.text || '';
-    } catch (error) { return "Error"; }
+    } catch (error) {
+      return [];
+    }
   },
 
   runGenericTool: async (toolId: string, input: string): Promise<string> => {
-    const ai = getAIClient();
-    let prompt = `Run tool ${toolId} on: "${input}"`;
-    let model = 'gemini-2.5-flash';
-    let thinking = undefined;
-    let tools = undefined;
+    const ai = GeminiService._getAI();
+    const prompts: Record<string, string> = {
+      't1': `Generate a concise academic abstract for this research text: "${input}"`,
+    };
+    const prompt = prompts[toolId] || `Summarize and extract key insights from this text: "${input}"`;
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    });
+    return response.text || "I was unable to process the requested tool.";
+  },
 
-    if (['t9', 't12'].includes(toolId)) { model = 'gemini-3-pro-preview'; thinking = { thinkingBudget: 32768 }; }
-    if (['t16', 't22'].includes(toolId)) { tools = [{ googleSearch: {} }]; }
+  generateLiteratureMatrix: async (input: string): Promise<string> => {
+    const ai = GeminiService._getAI();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Generate a markdown literature comparison table for these sources: "${input}". Include columns for Author/Year, Research Objective, Methodology, Findings, and Limitations.`,
+    });
+    return response.text || "Failed to generate matrix.";
+  },
 
+  filterDocuments: async (searchQuery: string, docsMetadata: any[]): Promise<string[]> => {
+    const ai = GeminiService._getAI();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Analyze these documents: ${JSON.stringify(docsMetadata)} and identify which ones match this natural language query: "${searchQuery}". Return ONLY a JSON array of matching document IDs.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
     try {
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config: { thinkingConfig: thinking, tools: tools }
-      });
-      return response.text || "No response.";
-    } catch (e) { return "Error."; }
+      return JSON.parse(response.text || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  generateAnalyticsReport: async (summary: string): Promise<AnalyticsReport> => {
+    const ai = GeminiService._getAI();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `As an academic supervisor, analyze this document completion summary and provide three distinct insights: "${summary}"`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            peakPerformance: { type: Type.STRING, description: 'Pattern of high productivity' },
+            academicTone: { type: Type.STRING, description: 'Linguistic quality of drafts' },
+            goalProjection: { type: Type.STRING, description: 'Estimated time to completion' }
+          },
+          required: ["peakPerformance", "academicTone", "goalProjection"]
+        }
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  },
+
+  generateStudySchedule: async (topic: string, startDate: string): Promise<any[]> => {
+    const ai = GeminiService._getAI();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Generate a logical research roadmap for a thesis titled "${topic}" starting from ${startDate}. Provide estimated durations in days.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.NUMBER },
+              name: { type: Type.STRING },
+              start: { type: Type.NUMBER, description: 'Days offset from start' },
+              duration: { type: Type.NUMBER, description: 'Duration in days' },
+              status: { type: Type.STRING, description: 'Status: completed, active, or pending' }
+            },
+            required: ["id", "name", "start", "duration", "status"]
+          }
+        }
+      }
+    });
+    return JSON.parse(response.text || '[]');
   }
 };

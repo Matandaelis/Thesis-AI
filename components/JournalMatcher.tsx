@@ -55,12 +55,12 @@ export const JournalMatcher: React.FC = () => {
   });
 
   return (
-    <div className="flex h-full bg-slate-50 animate-fade-in overflow-hidden">
+    <div className="flex h-full bg-zinc-50 animate-fade-in overflow-hidden">
       
       {/* Journal Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-200 flex flex-col h-full shrink-0 hidden md:flex">
-        <div className="p-4 border-b border-slate-200">
-           <h2 className="font-bold text-slate-800 flex items-center gap-2">
+      <div className="w-64 bg-white border-r border-zinc-200 flex flex-col h-full shrink-0 hidden md:flex">
+        <div className="p-4 border-b border-zinc-200">
+           <h2 className="font-bold text-zinc-800 flex items-center gap-2">
              <Target className="text-indigo-600" size={20} /> Matcher
            </h2>
         </div>
@@ -68,11 +68,11 @@ export const JournalMatcher: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
            {/* Filters */}
            <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                  <Filter size={12} /> Preferences
               </h3>
               <div className="space-y-3">
-                 <label className="flex items-center space-x-2 text-sm text-slate-700 cursor-pointer">
+                 <label className="flex items-center space-x-2 text-sm text-zinc-700 cursor-pointer">
                     <input 
                       type="checkbox" 
                       className="rounded text-indigo-600 focus:ring-indigo-500"
@@ -83,7 +83,7 @@ export const JournalMatcher: React.FC = () => {
                  </label>
                  
                  <div>
-                    <div className="flex justify-between text-xs text-slate-500 mb-1">
+                    <div className="flex justify-between text-xs text-zinc-500 mb-1">
                        <span>Min. Impact Factor</span>
                        <span>{filterMinImpact}+</span>
                     </div>
@@ -92,7 +92,7 @@ export const JournalMatcher: React.FC = () => {
                       min="0" 
                       max="10" 
                       step="0.5"
-                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                      className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                       value={filterMinImpact}
                       onChange={(e) => setFilterMinImpact(parseFloat(e.target.value))}
                     />
@@ -102,14 +102,14 @@ export const JournalMatcher: React.FC = () => {
 
            {/* History */}
            <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                  <History size={12} /> Recent Searches
               </h3>
               <div className="space-y-2">
                  {history.map((item, idx) => (
                     <button 
                       key={idx}
-                      className="w-full text-left text-xs text-slate-600 hover:text-indigo-600 truncate py-1.5 px-2 hover:bg-indigo-50 rounded transition-colors"
+                      className="w-full text-left text-xs text-zinc-600 hover:text-indigo-600 truncate py-1.5 px-2 hover:bg-indigo-50 rounded transition-colors"
                       onClick={() => setAbstract(item)} // Basic fill
                     >
                        {item}
@@ -121,7 +121,7 @@ export const JournalMatcher: React.FC = () => {
            {/* Saved */}
            {savedJournals.length > 0 && (
              <div>
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                    <Bookmark size={12} /> Saved Journals
                 </h3>
                 <div className="space-y-2">
@@ -142,19 +142,19 @@ export const JournalMatcher: React.FC = () => {
          <div className="p-6 md:p-8 overflow-y-auto">
             <div className="max-w-4xl mx-auto">
                 <div className="mb-8 text-center">
-                   <h1 className="text-3xl font-serif font-bold text-slate-900 mb-3">Find the Perfect Home for Your Research</h1>
-                   <p className="text-slate-600">Paste your abstract below. Our AI analyzes scope, impact factor, and acceptance trends to recommend the best journals.</p>
+                   <h1 className="text-3xl font-serif font-bold text-zinc-900 mb-3">Find the Perfect Home for Your Research</h1>
+                   <p className="text-zinc-600">Paste your abstract below. Our AI analyzes scope, impact factor, and acceptance trends to recommend the best journals.</p>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-8">
+                <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm mb-8">
                    <textarea 
-                      className="w-full h-32 p-3 text-sm text-slate-700 border-none resize-none focus:ring-0 placeholder:text-slate-400"
+                      className="w-full h-32 p-3 text-sm text-zinc-700 border-none resize-none focus:ring-0 placeholder:text-zinc-400"
                       placeholder="Paste your abstract here (e.g. 'This study investigates the correlation between...')"
                       value={abstract}
                       onChange={(e) => setAbstract(e.target.value)}
                    />
-                   <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                      <span className="text-xs text-slate-400">{abstract.length} characters</span>
+                   <div className="flex justify-between items-center pt-3 border-t border-zinc-100">
+                      <span className="text-xs text-zinc-400">{abstract.length} characters</span>
                       <button 
                         onClick={handleSearch}
                         disabled={isLoading || !abstract}
@@ -170,59 +170,59 @@ export const JournalMatcher: React.FC = () => {
                 {results.length > 0 && (
                    <div className="space-y-6 animate-fade-in-up">
                       <div className="flex items-center justify-between">
-                         <h3 className="text-lg font-bold text-slate-800">Recommended Journals ({filteredResults.length})</h3>
-                         <div className="text-xs text-slate-500">Sorted by relevance</div>
+                         <h3 className="text-lg font-bold text-zinc-800">Recommended Journals ({filteredResults.length})</h3>
+                         <div className="text-xs text-zinc-500">Sorted by relevance</div>
                       </div>
 
                       <div className="grid gap-4">
                          {filteredResults.map((journal, i) => (
-                            <div key={i} className="bg-white p-5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all group">
+                            <div key={i} className="bg-white p-5 rounded-xl border border-zinc-200 hover:border-indigo-300 hover:shadow-md transition-all group">
                                <div className="flex justify-between items-start mb-3">
                                   <div>
-                                     <h4 className="text-lg font-bold text-slate-800 group-hover:text-indigo-700 transition-colors">{journal.name}</h4>
-                                     <p className="text-sm text-slate-500">{journal.publisher}</p>
+                                     <h4 className="text-lg font-bold text-zinc-800 group-hover:text-indigo-700 transition-colors">{journal.name}</h4>
+                                     <p className="text-sm text-zinc-500">{journal.publisher}</p>
                                   </div>
                                   <div className="flex items-center gap-2">
                                      <div className="flex flex-col items-end">
                                         <span className="text-2xl font-bold text-indigo-600">{journal.matchScore}%</span>
-                                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Match</span>
+                                        <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Match</span>
                                      </div>
                                      <button 
                                        onClick={() => toggleSave(journal)}
-                                       className={`p-2 rounded-full hover:bg-slate-100 ${savedJournals.some(j => j.name === journal.name) ? 'text-indigo-600' : 'text-slate-300'}`}
+                                       className={`p-2 rounded-full hover:bg-zinc-100 ${savedJournals.some(j => j.name === journal.name) ? 'text-indigo-600' : 'text-zinc-300'}`}
                                      >
                                         <Bookmark size={20} fill={savedJournals.some(j => j.name === journal.name) ? 'currentColor' : 'none'} />
                                      </button>
                                   </div>
-                               </div>
+                                </div>
 
-                               <p className="text-sm text-slate-600 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
+                               <p className="text-sm text-zinc-600 mb-4 bg-zinc-50 p-3 rounded-lg border border-zinc-100 italic">
                                   "{journal.matchReason}"
                                </p>
 
                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
                                   <div>
-                                     <span className="block text-xs text-slate-400 font-bold uppercase">Impact Factor</span>
-                                     <span className="font-semibold text-slate-800">{journal.impactFactor}</span>
+                                     <span className="block text-xs text-zinc-400 font-bold uppercase">Impact Factor</span>
+                                     <span className="font-semibold text-zinc-800">{journal.impactFactor}</span>
                                   </div>
                                   <div>
-                                     <span className="block text-xs text-slate-400 font-bold uppercase">Acceptance</span>
-                                     <span className="font-semibold text-slate-800">{journal.acceptanceRate || 'Unknown'}</span>
+                                     <span className="block text-xs text-zinc-400 font-bold uppercase">Acceptance</span>
+                                     <span className="font-semibold text-zinc-800">{journal.acceptanceRate || 'Unknown'}</span>
                                   </div>
                                   <div>
-                                     <span className="block text-xs text-slate-400 font-bold uppercase">Open Access</span>
-                                     <span className={`font-semibold ${journal.openAccess ? 'text-green-600' : 'text-slate-800'}`}>
+                                     <span className="block text-xs text-zinc-400 font-bold uppercase">Open Access</span>
+                                     <span className={`font-semibold ${journal.openAccess ? 'text-green-600' : 'text-zinc-800'}`}>
                                         {journal.openAccess ? 'Available' : 'Optional/No'}
                                      </span>
                                   </div>
                                   <div>
-                                     <span className="block text-xs text-slate-400 font-bold uppercase">Scope</span>
-                                     <span className="font-semibold text-slate-800 truncate block" title={journal.scope}>{journal.scope}</span>
+                                     <span className="block text-xs text-zinc-400 font-bold uppercase">Scope</span>
+                                     <span className="font-semibold text-zinc-800 truncate block" title={journal.scope}>{journal.scope}</span>
                                   </div>
                                </div>
 
                                {journal.website && (
-                                  <div className="pt-3 border-t border-slate-100 flex justify-end">
+                                  <div className="pt-3 border-t border-zinc-100 flex justify-end">
                                      <a 
                                        href={journal.website} 
                                        target="_blank" 
@@ -240,7 +240,7 @@ export const JournalMatcher: React.FC = () => {
                 )}
                 
                 {results.length === 0 && !isLoading && abstract && (
-                   <div className="text-center py-12 text-slate-400">
+                   <div className="text-center py-12 text-zinc-400">
                       <Search className="mx-auto mb-2 opacity-50" size={48} />
                       <p>No journals found yet. Try adjusting your abstract.</p>
                    </div>

@@ -1,6 +1,6 @@
 {
-  "name": "ThesisAI",
-  "description": "An AI-powered PaaS for academic thesis writing, tailored for Kenyan university standards with global reach.",
+  "name": "ScholarSync",
+  "description": "An AI-powered PaaS for academic research and thesis writing, tailored for global institutional standards.",
   "requestFramePermissions": [
     "microphone"
   ]

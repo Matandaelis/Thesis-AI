@@ -1,7 +1,6 @@
 
 // Cloudflare Pages Function to handle D1 interactions
 
-// Type definitions for Cloudflare Pages and D1 to satisfy TypeScript compiler
 interface D1Result<T = unknown> {
   results: T[];
   success: boolean;
@@ -45,17 +44,19 @@ interface Env {
   DB: D1Database;
 }
 
+const USER_ID = 'user_123'; // Hardcoded for demo, replace with auth context
+
 export const onRequest: PagesFunction<Env> = async (context) => {
-  const { request, env, params } = context;
+  const { request, env } = context;
   const url = new URL(request.url);
-  const path = url.pathname.replace('/api/', ''); // Remove /api/ prefix
+  const path = url.pathname.replace('/api/', ''); 
   const method = request.method;
 
   try {
     // --- Documents Endpoints ---
     if (path === 'documents') {
       if (method === 'GET') {
-        const { results } = await env.DB.prepare('SELECT * FROM documents ORDER BY last_modified DESC').all();
+        const { results } = await env.DB.prepare('SELECT * FROM documents WHERE user_id = ? ORDER BY last_modified DESC').bind(USER_ID).all();
         return Response.json(results);
       }
       
@@ -73,14 +74,42 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             progress=excluded.progress
         `).bind(
           body.id, body.title, body.universityId, body.content, 
-          Date.now(), body.status, body.progress, 'user_123'
+          Date.now(), body.status, body.progress, USER_ID
         ).run();
+        return Response.json({ success: true });
+      }
+
+      // PATCH for efficient partial updates (e.g. rename)
+      if (method === 'PATCH') {
+        const body: any = await request.json();
+        const id = url.searchParams.get('id');
+        
+        if (!id) return new Response('Missing ID', { status: 400 });
+
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (body.title !== undefined) { updates.push('title = ?'); values.push(body.title); }
+        if (body.status !== undefined) { updates.push('status = ?'); values.push(body.status); }
+        if (body.progress !== undefined) { updates.push('progress = ?'); values.push(body.progress); }
+        if (body.content !== undefined) { updates.push('content = ?'); values.push(body.content); }
+        
+        // Always update modified time
+        updates.push('last_modified = ?');
+        values.push(Date.now());
+
+        if (updates.length > 0) {
+            values.push(id);
+            values.push(USER_ID);
+            const sql = `UPDATE documents SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`;
+            await env.DB.prepare(sql).bind(...values).run();
+        }
         return Response.json({ success: true });
       }
       
       if (method === 'DELETE') {
         const id = url.searchParams.get('id');
-        await env.DB.prepare('DELETE FROM documents WHERE id = ?').bind(id).run();
+        await env.DB.prepare('DELETE FROM documents WHERE id = ? AND user_id = ?').bind(id, USER_ID).run();
         return Response.json({ success: true });
       }
     }
@@ -88,13 +117,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     // --- Library Endpoints ---
     if (path === 'library') {
       if (method === 'GET') {
-        const { results } = await env.DB.prepare('SELECT * FROM library_items ORDER BY added_date DESC').all();
+        const { results } = await env.DB.prepare('SELECT * FROM library_items WHERE user_id = ? ORDER BY added_date DESC').bind(USER_ID).all();
         return Response.json(results);
       }
 
       if (method === 'POST') {
         const body: any = await request.json();
-        // Convert arrays/objects to strings for SQLite
         const tags = JSON.stringify(body.tags || []);
         const embedding = body.embedding ? JSON.stringify(body.embedding) : null;
         
@@ -109,14 +137,36 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         `).bind(
           body.id, body.type, body.author, body.year, body.title, body.source, body.formatted, 
           tags, body.pdfUrl, body.readStatus, body.isFavorite ? 1 : 0, Date.now(), 
-          body.folderId, body.raw, body.fullText, embedding, 'user_123'
+          body.folderId, body.raw, body.fullText, embedding, USER_ID
         ).run();
+        return Response.json({ success: true });
+      }
+
+      if (method === 'PATCH') {
+        const body: any = await request.json();
+        const id = url.searchParams.get('id');
+        if (!id) return new Response('Missing ID', { status: 400 });
+
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (body.readStatus !== undefined) { updates.push('read_status = ?'); values.push(body.readStatus); }
+        if (body.isFavorite !== undefined) { updates.push('is_favorite = ?'); values.push(body.isFavorite ? 1 : 0); }
+        if (body.folderId !== undefined) { updates.push('folder_id = ?'); values.push(body.folderId); }
+        if (body.tags !== undefined) { updates.push('tags = ?'); values.push(JSON.stringify(body.tags)); }
+
+        if (updates.length > 0) {
+            values.push(id);
+            values.push(USER_ID);
+            const sql = `UPDATE library_items SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`;
+            await env.DB.prepare(sql).bind(...values).run();
+        }
         return Response.json({ success: true });
       }
 
       if (method === 'DELETE') {
         const id = url.searchParams.get('id');
-        await env.DB.prepare('DELETE FROM library_items WHERE id = ?').bind(id).run();
+        await env.DB.prepare('DELETE FROM library_items WHERE id = ? AND user_id = ?').bind(id, USER_ID).run();
         return Response.json({ success: true });
       }
     }
@@ -125,7 +175,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     if (path === 'annotations') {
         if (method === 'GET') {
             const paperId = url.searchParams.get('paperId');
-            const { results } = await env.DB.prepare('SELECT * FROM annotations WHERE paper_id = ?').bind(paperId).all();
+            const { results } = await env.DB.prepare('SELECT * FROM annotations WHERE paper_id = ? AND user_id = ?').bind(paperId, USER_ID).all();
             return Response.json(results);
         }
         
@@ -138,7 +188,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET content=excluded.content
             `).bind(
-                body.id, body.paperId, 'user_123', body.type, body.content, body.color,
+                body.id, body.paperId, USER_ID, body.type, body.content, body.color,
                 position, Date.now(), body.status
             ).run();
             return Response.json({ success: true });
@@ -146,29 +196,46 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
         if (method === 'DELETE') {
             const id = url.searchParams.get('id');
-            await env.DB.prepare('DELETE FROM annotations WHERE id = ?').bind(id).run();
+            await env.DB.prepare('DELETE FROM annotations WHERE id = ? AND user_id = ?').bind(id, USER_ID).run();
             return Response.json({ success: true });
         }
     }
 
-    // --- Semantic Search (Cosine Similarity simulation in SQL/JS) ---
-    // Note: D1 supports `vec_` extensions in beta, but for standard SQLite we might fetch and filter in JS if dataset is small
+    // --- Semantic Search ---
     if (path === 'search/semantic') {
         if (method === 'POST') {
             const { embedding } = await request.json() as any;
-            // Fetch all items with embeddings
-            const { results } = await env.DB.prepare("SELECT id, title, author, year, source, formatted, tags, pdf_url, read_status, is_favorite, added_date, folder_id, raw, full_text, embedding FROM library_items WHERE embedding IS NOT NULL").all();
             
-            // Calculate similarity in the worker (JavaScript)
-            const scored = results.map((item: any) => {
-                const itemVec = JSON.parse(item.embedding);
-                const similarity = cosineSimilarity(embedding, itemVec);
-                return { ...item, similarity };
-            });
+            const { results: vectors } = await env.DB.prepare("SELECT id, embedding FROM library_items WHERE embedding IS NOT NULL AND user_id = ?").bind(USER_ID).all();
             
-            // Sort and slice
-            scored.sort((a: any, b: any) => b.similarity - a.similarity);
-            return Response.json(scored.slice(0, 10));
+            if (!vectors || vectors.length === 0) return Response.json([]);
+
+            const scores: { id: string, similarity: number }[] = [];
+            
+            for (const item of vectors as any[]) {
+                try {
+                    const itemVec = JSON.parse(item.embedding);
+                    const similarity = cosineSimilarity(embedding, itemVec);
+                    scores.push({ id: item.id, similarity });
+                } catch (e) { continue; }
+            }
+            
+            scores.sort((a, b) => b.similarity - a.similarity);
+            const topIds = scores.slice(0, 10);
+            
+            if (topIds.length === 0) return Response.json([]);
+
+            const placeholders = topIds.map(() => '?').join(',');
+            const { results: items } = await env.DB.prepare(`SELECT * FROM library_items WHERE id IN (${placeholders})`)
+                .bind(...topIds.map(x => x.id))
+                .all();
+
+            const enrichedResults = items.map((item: any) => ({
+                ...item,
+                similarity: topIds.find(x => x.id === item.id)?.similarity || 0
+            })).sort((a, b) => b.similarity - a.similarity);
+
+            return Response.json(enrichedResults);
         }
     }
 
@@ -179,7 +246,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 };
 
-// Vector math helper
 function cosineSimilarity(vecA: number[], vecB: number[]) {
     let dotProduct = 0;
     let magnitudeA = 0;

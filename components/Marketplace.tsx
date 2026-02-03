@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Star, Clock, Check, X, Filter, Circle } from 'lucide-react';
+import { Star, Check, X } from 'lucide-react';
 
 const services = [
   {
@@ -199,7 +199,7 @@ export const Marketplace: React.FC = () => {
         </div>
         <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm w-full md:w-auto text-center md:text-left flex flex-col md:block">
             <span className="text-sm font-medium text-slate-600">Your Balance: </span>
-            <span className="text-lg font-bold text-teal-700">KES 4,500</span>
+            <span className="text-lg font-bold text-blue-700">KES 4,500</span>
         </div>
       </header>
 
@@ -223,7 +223,7 @@ export const Marketplace: React.FC = () => {
                <img src={`https://picsum.photos/400/200?random=${service.id + 10}`} className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500" alt="Service" />
                {(service.rating >= 4.9) && (
                    <div className="absolute bottom-3 left-4">
-                      <span className="bg-teal-500 text-white text-xs px-2 py-1 rounded font-bold uppercase tracking-wide shadow-sm">Top Rated</span>
+                      <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded font-bold uppercase tracking-wide shadow-sm">Top Rated</span>
                    </div>
                )}
                {service.online && (
@@ -254,7 +254,7 @@ export const Marketplace: React.FC = () => {
                 <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
                     <div>
                         <p className="text-xs text-slate-400">Starting at</p>
-                        <p className="text-base font-bold text-indigo-700">{service.price}</p>
+                        <p className="text-base font-bold text-blue-700">{service.price}</p>
                     </div>
                     <div className="flex items-center space-x-1 text-amber-500">
                         <Star size={14} fill="currentColor" />
@@ -325,7 +325,7 @@ export const Marketplace: React.FC = () => {
                     <button 
                         onClick={handleBook}
                         disabled={isBooked}
-                        className="w-full bg-teal-600 text-white py-3 rounded-lg font-bold hover:bg-teal-700 transition-all flex items-center justify-center space-x-2 shadow-lg shadow-teal-600/20"
+                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/20"
                     >
                         {isBooked ? (
                             <>

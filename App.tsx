@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Sidebar } from './components/Sidebar';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { MainLayout } from './components/MainLayout';
 import { Dashboard } from './components/Dashboard';
 import { DocumentsList } from './components/DocumentsList';
 import { Editor } from './components/Editor';
@@ -8,330 +9,147 @@ import { Marketplace } from './components/Marketplace';
 import { Settings } from './components/Settings';
 import { Toolkit } from './components/Toolkit';
 import { Analytics } from './components/Analytics';
-import { Pricing } from './components/Pricing';
 import { ResearchLibrary } from './components/ResearchLibrary';
-import { Calendar } from './components/Calendar';
 import { LandingPage } from './components/LandingPage';
-import { JournalMatcher } from './components/JournalMatcher';
-import { SynthesisTool } from './components/SynthesisTool';
+import { WebResearch } from './components/WebResearch';
+import { VisualizationStudio } from './components/VisualizationStudio';
+import { HelpCenter } from './components/HelpCenter';
 import { Document, University, View, LibraryItem, LibraryFolder } from './types';
-import { Construction, Menu, GraduationCap, LifeBuoy, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { dbService } from './services/dbService';
 import { GeminiService } from './services/geminiService';
 import { KENYAN_UNIVERSITIES } from './lib/constants';
 
 export const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<View>(View.LANDING);
-  const [previousView, setPreviousView] = useState<View>(View.DASHBOARD);
+  const [view, setView] = useState<View>(View.LANDING);
+  const [prevView, setPrevView] = useState<View>(View.DASHBOARD);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
-  const [currentPaper, setCurrentPaper] = useState<LibraryItem | null>(null); // New state for editing paper
   const [activeUniversity, setActiveUniversity] = useState<University | null>(null);
-  const [universities, setUniversities] = useState<University[]>(KENYAN_UNIVERSITIES);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<'checking' | 'connected' | 'error'>('checking');
 
-  // Data State
+  // App Data State
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [libraryFolders, setLibraryFolders] = useState<LibraryFolder[]>([
-    { id: 'f1', name: 'Thesis Chapter 1', count: 0 },
-    { id: 'f2', name: 'Methodology', count: 0 },
-    { id: 'f3', name: 'AI Ethics', count: 0 },
+    { id: 'f1', name: 'Thesis Core', count: 0 },
   ]);
-  const [documents, setDocuments] = useState<Document[]>([]);
 
-  // Check API Connection on Mount
+  // Initial Sync
   useEffect(() => {
-    const checkApi = async () => {
+    const initApp = async () => {
       setApiStatus('checking');
-      const result = await GeminiService.testConnection();
-      console.log('Gemini API Status:', result);
-      setApiStatus(result.success ? 'connected' : 'error');
+      const conn = await GeminiService.testConnection();
+      setApiStatus(conn.success ? 'connected' : 'error');
     };
-    checkApi();
+    initApp();
   }, []);
 
-  // Load Data from Supabase on Mount
-  useEffect(() => {
-    if (currentView !== View.LANDING) {
-      loadData();
-    }
-  }, [currentView]);
-
-  const loadData = async () => {
-    // Only show loader if we have no data yet
-    if (documents.length === 0) setIsLoading(true);
-    
+  // View-based Data Refresher
+  const loadData = useCallback(async () => {
+    if (view === View.LANDING) return;
+    setIsLoading(true);
     try {
-      const [docs, items] = await Promise.all([
+      const [docs, library] = await Promise.all([
         dbService.getDocuments(),
         dbService.getLibrary()
       ]);
       setDocuments(docs);
-      setLibraryItems(items);
-    } catch (error) {
-      console.error("Failed to load data", error);
+      setLibraryItems(library);
+    } catch (e) {
+      console.error("Critical Data Fetch Error:", e);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [view]);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Handlers
   const handleOpenDocument = (doc: Document) => {
-    setPreviousView(currentView === View.DOCUMENTS ? View.DOCUMENTS : View.DASHBOARD);
+    setPrevView(view);
     setCurrentDoc(doc);
-    
-    // Find associated university from state to ensure standards exist (supports custom unis)
-    const uni = universities.find(u => u.id === doc.universityId) || universities[0];
-    
+    const uni = KENYAN_UNIVERSITIES.find(u => u.id === doc.universityId) || null;
     setActiveUniversity(uni);
-    setCurrentView(View.EDITOR);
-    setIsSidebarOpen(false);
+    setView(View.EDITOR);
   };
 
-  const handleOpenPaperEditor = (paper: LibraryItem) => {
-      setPreviousView(View.RESEARCH);
-      setCurrentPaper(paper);
-      setCurrentView(View.PAPER_EDITOR);
-      setIsSidebarOpen(false);
-  };
-
-  const handleCreateDocument = async (uni: University) => {
-    if (!universities.find(u => u.id === uni.id)) {
-        setUniversities(prev => [...prev, uni]);
-    }
-
+  const handleCreateDocument = async (university: University) => {
     const newDoc: Document = {
-      id: crypto.randomUUID(), // Use standard UUID
-      title: 'Untitled Thesis',
-      universityId: uni.id,
-      content: `<h1>Title Page</h1><p>[Insert Title]</p><p>A Thesis Submitted in Partial Fulfillment for the Degree of Master of Science at ${uni.name}</p><p>${new Date().getFullYear()}</p>`,
+      id: `doc-${Date.now()}`,
+      title: 'Untitled Chapter',
+      content: '',
+      universityId: university.id,
       lastModified: new Date(),
       status: 'Draft',
       progress: 0
     };
-
-    // Optimistic UI update
-    setDocuments([newDoc, ...documents]);
-    setCurrentDoc(newDoc);
-    setActiveUniversity(uni);
-    setPreviousView(View.DOCUMENTS); 
-    setCurrentView(View.EDITOR);
-    setIsSidebarOpen(false);
-
-    // Persist to DB
     await dbService.saveDocument(newDoc);
+    handleOpenDocument(newDoc);
   };
 
-  const handleSaveDocument = async (updatedDoc: Document) => {
-    // Optimistic Update
-    setDocuments(prev => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
-    setCurrentDoc(updatedDoc);
-    
-    // Persist
-    await dbService.saveDocument(updatedDoc);
-  };
+  const renderContent = () => {
+    if (isLoading && documents.length === 0 && view !== View.LANDING) {
+      return (
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="animate-spin text-indigo-600" size={48} />
+            <p className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Syncing your research...</p>
+          </div>
+        </div>
+      );
+    }
 
-  const handleRenameDocument = async (id: string, newTitle: string) => {
-    const doc = documents.find(d => d.id === id);
-    if (doc) {
-        const updatedDoc = { ...doc, title: newTitle, lastModified: new Date() };
-        setDocuments(prev => prev.map(d => d.id === id ? updatedDoc : d));
-        await dbService.saveDocument(updatedDoc);
+    switch (view) {
+      case View.LANDING: 
+        return <LandingPage onGetStarted={() => setView(View.DASHBOARD)} />;
+      case View.DASHBOARD: 
+        return <Dashboard documents={documents} onOpenDocument={handleOpenDocument} />;
+      case View.DOCUMENTS: 
+        return <DocumentsList 
+          documents={documents} 
+          onOpenDocument={handleOpenDocument} 
+          onCreateNew={() => setView(View.TEMPLATES)}
+          onRename={dbService.renameDocument}
+          onDelete={async (id) => { await dbService.deleteDocument(id); loadData(); }}
+        />;
+      case View.TEMPLATES: 
+        return <Templates onSelect={handleCreateDocument} />;
+      case View.EDITOR: 
+        return currentDoc && (
+          <Editor 
+            document={currentDoc} 
+            university={activeUniversity} 
+            onSave={dbService.saveDocument} 
+            onBack={() => setView(prevView)} 
+          />
+        );
+      case View.RESEARCH: 
+        return <ResearchLibrary items={libraryItems} setItems={setLibraryItems} folders={libraryFolders} setFolders={setLibraryFolders} />;
+      case View.WEB_RESEARCH: 
+        return <WebResearch />;
+      case View.VISUALIZATION: 
+        return <VisualizationStudio />;
+      case View.TOOLKIT: 
+        return <Toolkit />;
+      case View.ANALYTICS: 
+        return <Analytics documents={documents} />;
+      case View.MARKETPLACE: 
+        return <Marketplace />;
+      case View.SETTINGS: 
+        return <Settings onSignOut={() => setView(View.LANDING)} />;
+      case View.HELP: 
+        return <HelpCenter />;
+      default: 
+        return <Dashboard documents={documents} onOpenDocument={handleOpenDocument} />;
     }
   };
 
-  const handleDeleteDocument = async (id: string) => {
-    setDocuments(prev => prev.filter(d => d.id !== id));
-    await dbService.deleteDocument(id);
-  };
-
-  // Wrapper for Library Updates to ensure persistence
-  const handleLibraryUpdate = (newItems: LibraryItem[] | ((prev: LibraryItem[]) => LibraryItem[])) => {
-      // Resolve functional state update if necessary
-      const resolvedNewItems = typeof newItems === 'function' ? newItems(libraryItems) : newItems;
-      
-      // Determine diff (Naive approach: check length or ids)
-      // For simplicity in this demo: 
-      // 1. If length increased, we added something.
-      // 2. If length decreased, we deleted.
-      // 3. Otherwise we likely updated a status.
-      
-      const isAdd = resolvedNewItems.length > libraryItems.length;
-      const isDelete = resolvedNewItems.length < libraryItems.length;
-
-      if (isAdd) {
-         // Find the new item
-         const added = resolvedNewItems.find(n => !libraryItems.some(o => o.id === n.id));
-         if (added) dbService.addToLibrary(added);
-      } else if (isDelete) {
-         const deleted = libraryItems.find(o => !resolvedNewItems.some(n => n.id === o.id));
-         if (deleted) dbService.deleteLibraryItem(deleted.id);
-      } else {
-         // Update - Find changed item (usually just read status or favorite)
-         resolvedNewItems.forEach(n => {
-             const old = libraryItems.find(o => o.id === n.id);
-             if (old && (old.readStatus !== n.readStatus || old.isFavorite !== n.isFavorite)) {
-                 dbService.updateLibraryItem(n.id, { readStatus: n.readStatus, isFavorite: n.isFavorite });
-             }
-         });
-      }
-
-      setLibraryItems(resolvedNewItems);
-  };
-
-  // Simple Placeholder for new features
-  const PlaceholderView = ({ title, desc }: { title: string, desc: string }) => (
-    <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center animate-fade-in">
-      <div className="bg-slate-100 p-6 rounded-full mb-6">
-        {title === "Help Center" ? <LifeBuoy size={48} className="text-slate-300" /> : <Construction size={48} className="text-slate-300" />}
-      </div>
-      <h2 className="text-2xl font-bold text-slate-800 mb-2">{title}</h2>
-      <p className="max-w-md">{desc}</p>
-      <button 
-        onClick={() => setCurrentView(View.DASHBOARD)}
-        className="mt-6 px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-      >
-        Back to Dashboard
-      </button>
-    </div>
-  );
-
-  // If in Landing View, render just the landing page
-  if (currentView === View.LANDING) {
-    return <LandingPage onGetStarted={() => setCurrentView(View.DASHBOARD)} />;
-  }
-
-  // Full Screen Editor View (No Sidebar)
-  // Reusing the Unified Editor Component
-  if (currentView === View.PAPER_EDITOR && currentPaper) {
-      return <Editor paper={currentPaper} onBack={() => setCurrentView(View.RESEARCH)} />;
-  }
-
-  if (isLoading && documents.length === 0) {
-      return (
-          <div className="flex h-screen w-full items-center justify-center bg-slate-50">
-              <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="animate-spin text-teal-600" size={32} />
-                  <p className="text-sm font-medium text-slate-500">Loading your thesis...</p>
-              </div>
-          </div>
-      );
-  }
-
   return (
-    <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      {currentView !== View.EDITOR && (
-        <Sidebar 
-          currentView={currentView} 
-          onChangeView={setCurrentView} 
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          apiStatus={apiStatus}
-        />
-      )}
-
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {currentView !== View.EDITOR && (
-          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm z-30 shrink-0">
-             <div className="flex items-center gap-2">
-                <div className="bg-teal-500 p-1.5 rounded-lg text-white">
-                    <GraduationCap size={20} />
-                </div>
-                <span className="font-bold font-serif text-lg text-slate-800">ThesisAI</span>
-             </div>
-             <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-slate-900 p-1">
-                <Menu size={24} />
-             </button>
-          </header>
-        )}
-
-        <main className="flex-1 overflow-auto relative">
-          {currentView === View.DASHBOARD && (
-            <Dashboard documents={documents} onOpenDocument={handleOpenDocument} />
-          )}
-
-          {currentView === View.DOCUMENTS && (
-            <DocumentsList 
-               documents={documents} 
-               onOpenDocument={handleOpenDocument}
-               onCreateNew={() => setCurrentView(View.TEMPLATES)}
-               onRename={handleRenameDocument}
-               onDelete={handleDeleteDocument}
-            />
-          )}
-
-          {currentView === View.TEMPLATES && (
-            <Templates onSelect={handleCreateDocument} />
-          )}
-
-          {currentView === View.EDITOR && currentDoc && (
-            <Editor 
-              document={currentDoc} 
-              university={activeUniversity} 
-              onSave={handleSaveDocument}
-              onBack={() => setCurrentView(previousView)}
-              libraryItems={libraryItems}
-              onAddToLibrary={handleLibraryUpdate}
-            />
-          )}
-
-          {currentView === View.MARKETPLACE && (
-            <Marketplace />
-          )}
-          
-          {currentView === View.SETTINGS && (
-             <Settings />
-          )}
-
-          {currentView === View.TOOLKIT && (
-             <Toolkit />
-          )}
-
-          {currentView === View.ANALYTICS && (
-             <Analytics documents={documents} />
-          )}
-          
-          {currentView === View.PRICING && (
-             <Pricing />
-          )}
-
-          {currentView === View.RESEARCH && (
-             <ResearchLibrary 
-                items={libraryItems}
-                setItems={handleLibraryUpdate}
-                folders={libraryFolders}
-                setFolders={setLibraryFolders}
-                onOpenEditor={handleOpenPaperEditor}
-             />
-          )}
-
-          {currentView === View.SYNTHESIS && (
-             <SynthesisTool items={libraryItems} />
-          )}
-
-          {currentView === View.JOURNAL_MATCHER && (
-             <JournalMatcher />
-          )}
-          
-          {currentView === View.CALENDAR && (
-             <Calendar />
-          )}
-
-          {currentView === View.HELP && (
-             <PlaceholderView 
-               title="Help Center" 
-               desc="Documentation, video tutorials, and support contact details." 
-             />
-          )}
-
-          {currentView === View.COMMUNITY && (
-             <PlaceholderView 
-               title="Scholar Community" 
-               desc="Connect with other researchers, share drafts for peer review, and find study partners." 
-             />
-          )}
-        </main>
-      </div>
-    </div>
+    <MainLayout currentView={view} onChangeView={setView} apiStatus={apiStatus}>
+      {renderContent()}
+    </MainLayout>
   );
 };

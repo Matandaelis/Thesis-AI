@@ -1,6 +1,3 @@
 
-// Prisma has been removed in favor of Supabase.
-// This file is kept as a placeholder to prevent import errors if it's referenced elsewhere, 
-// though all references should have been removed.
-
+// This file is deprecated. The application now uses Cloudflare D1.
 export const prisma = null;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Volume2, Video, X, Sparkles, Activity } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
@@ -84,8 +83,6 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
     useEffect(() => {
         let animId: number;
         const updateVisualizer = () => {
-            // Simulate volume fluctuation when connected and speaking/listening
-            // In a real implementation, use AnalyserNode
             if (isConnected) {
                 setVolume(v => Math.max(0, Math.min(100, v + (Math.random() * 20 - 10))));
             } else {
@@ -100,7 +97,6 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
     const handleConnect = async () => {
         setStatus('connecting');
         try {
-            // Updated to prefer VITE_ prefix for Cloudflare Pages compatibility
             const metaEnv = (import.meta as any).env || {};
             const processEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
             const apiKey = metaEnv.VITE_API_KEY || metaEnv.VITE_GEMINI_API_KEY || processEnv.API_KEY;
@@ -115,30 +111,18 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
             
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
+            // Construct System Instruction with Context
+            const instruction = `You are a tough but fair academic supervisor conducting a viva defense. Ask probing questions one by one. Keep responses concise.${contextText ? ` The student is practicing for their thesis defense. Here is the context of their thesis: "${contextText.substring(0, 1000)}...". Based on this context, ask rigorous questions about methodology and findings.` : ''}`;
+
             // Live Session Init
             const sessionPromise = ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+                model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 callbacks: {
                     onopen: () => {
                         console.log("Live Session Opened");
                         setStatus('connected');
                         setIsConnected(true);
                         setMessages(prev => [...prev, {role: 'model', text: "Session connected. Ready for defense."}]);
-
-                        // Send Context if available
-                        if (contextText) {
-                            sessionPromise.then(session => {
-                                session.send({
-                                    clientContent: {
-                                        turns: [{
-                                            role: 'user',
-                                            parts: [{ text: `I am practicing for my thesis defense. Here is the context of my thesis: "${contextText.substring(0, 1000)}...". Please ask me rigorous questions about my methodology and findings. Act as a strict professor.` }]
-                                        }],
-                                        turnComplete: true
-                                    }
-                                });
-                            });
-                        }
 
                         // Start Input Stream
                         if (inputContextRef.current) {
@@ -175,11 +159,6 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
                             source.onended = () => sourcesRef.current.delete(source);
                             sourcesRef.current.add(source);
                         }
-
-                        // Handle Transcript (Optional, if enabled in config)
-                        if (msg.serverContent?.modelTurn?.parts?.[0]?.text) {
-                             // Update UI with text if model sends it
-                        }
                     },
                     onclose: () => {
                         console.log("Live Session Closed");
@@ -196,7 +175,7 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
                     speechConfig: {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
                     },
-                    systemInstruction: "You are a tough but fair academic supervisor conducting a viva defense. Ask probing questions one by one. Keep responses concise.",
+                    systemInstruction: instruction,
                 }
             });
             
@@ -249,21 +228,21 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-6 animate-fade-in backdrop-blur-md">
-            <div className="max-w-2xl w-full bg-slate-800 rounded-3xl p-8 shadow-2xl border border-slate-700 relative overflow-hidden">
+        <div className="fixed inset-0 bg-zinc-950/95 z-50 flex items-center justify-center p-6 animate-fade-in backdrop-blur-md">
+            <div className="max-w-2xl w-full bg-zinc-900 rounded-3xl p-8 shadow-2xl border border-zinc-800 relative overflow-hidden">
                 {/* Background Pulse */}
                 {isConnected && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-teal-500/20 rounded-full blur-3xl animate-pulse"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
                 )}
 
                 <div className="relative z-10 flex flex-col items-center text-center space-y-8">
                     {/* Header */}
                     <div className="flex justify-between w-full items-center">
-                        <div className="flex items-center gap-2 text-teal-400">
+                        <div className="flex items-center gap-2 text-indigo-400">
                             <Activity size={20} className={isConnected ? "animate-pulse" : ""} />
                             <span className="font-bold tracking-wider text-sm uppercase">Viva Defense Mode</span>
                         </div>
-                        <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+                        <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors">
                             <X size={24} />
                         </button>
                     </div>
@@ -271,27 +250,27 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
                     {/* Status & Visualizer */}
                     <div className="flex-1 flex flex-col items-center justify-center min-h-[200px]">
                         {status === 'idle' && (
-                            <div className="text-slate-300">
+                            <div className="text-zinc-300">
                                 <h2 className="text-2xl font-serif font-bold mb-2">Ready to Practice?</h2>
                                 <p className="text-sm opacity-70 max-w-md">Connect to start a real-time voice conversation with your AI Supervisor. It will ask questions about your thesis context.</p>
                             </div>
                         )}
                         {status === 'connecting' && (
                             <div className="flex flex-col items-center gap-4">
-                                <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-teal-400 font-bold">Establishing Secure Line...</p>
+                                <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-indigo-400 font-bold">Establishing Secure Line...</p>
                             </div>
                         )}
                         {status === 'connected' && (
                             <div className="relative">
                                 {/* Simulated Visualizer Ring */}
                                 <div 
-                                    className="w-32 h-32 rounded-full border-4 border-teal-500 flex items-center justify-center transition-all duration-75 shadow-[0_0_30px_rgba(20,184,166,0.5)]"
+                                    className="w-32 h-32 rounded-full border-4 border-indigo-500 flex items-center justify-center transition-all duration-75 shadow-[0_0_30px_rgba(99,102,241,0.5)]"
                                     style={{ transform: `scale(${1 + volume / 200})` }}
                                 >
                                     <Mic size={48} className="text-white" />
                                 </div>
-                                <div className="mt-8 text-teal-300 font-medium animate-pulse">Listening...</div>
+                                <div className="mt-8 text-indigo-300 font-medium animate-pulse">Listening...</div>
                             </div>
                         )}
                         {status === 'error' && (
@@ -307,7 +286,7 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
                         {status === 'idle' ? (
                             <button 
                                 onClick={handleConnect}
-                                className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg shadow-teal-900/50 transition-all hover:scale-105 flex items-center gap-3"
+                                className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg shadow-indigo-900/50 transition-all hover:scale-105 flex items-center gap-3"
                             >
                                 <Video size={24} /> Start Defense
                             </button>
@@ -315,7 +294,7 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
                             <>
                                 <button 
                                     onClick={toggleMute}
-                                    className={`p-4 rounded-full transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                                    className={`p-4 rounded-full transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'}`}
                                 >
                                     {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
                                 </button>
@@ -329,7 +308,7 @@ export const VivaMode: React.FC<VivaModeProps> = ({ onClose, contextText }) => {
                         ) : null}
                     </div>
                     
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-zinc-500">
                         Powered by Gemini 2.5 Native Audio. Use headphones for best experience.
                     </p>
                 </div>

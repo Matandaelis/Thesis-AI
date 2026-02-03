@@ -105,43 +105,43 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
 
     return (
         <div className="p-4 md:p-8 max-w-4xl mx-auto animate-fade-in">
-            <h1 className="text-3xl font-bold font-serif text-slate-900 mb-8">Settings</h1>
+            <h1 className="text-3xl font-bold font-serif text-zinc-900 mb-8">Settings</h1>
 
             <div className="flex flex-col md:flex-row gap-8">
                 {/* Settings Sidebar */}
                 <div className="w-full md:w-64 space-y-2 shrink-0">
                     <button 
                         onClick={() => setActiveTab('profile')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'profile' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'profile' ? 'bg-white shadow-sm border border-zinc-200 text-indigo-700 font-medium' : 'text-zinc-600 hover:bg-white hover:text-zinc-900'}`}
                     >
                         <User size={18} /> <span>Profile</span>
                     </button>
                     <button 
                         onClick={() => setActiveTab('billing')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'billing' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'billing' ? 'bg-white shadow-sm border border-zinc-200 text-indigo-700 font-medium' : 'text-zinc-600 hover:bg-white hover:text-zinc-900'}`}
                     >
                         <CreditCard size={18} /> <span>Billing & Plan</span>
                     </button>
                     <button 
                         onClick={() => setActiveTab('notifications')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'notifications' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'notifications' ? 'bg-white shadow-sm border border-zinc-200 text-indigo-700 font-medium' : 'text-zinc-600 hover:bg-white hover:text-zinc-900'}`}
                     >
                         <Bell size={18} /> <span>Notifications</span>
                     </button>
                     <button 
                         onClick={() => setActiveTab('integrations')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'integrations' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'integrations' ? 'bg-white shadow-sm border border-zinc-200 text-indigo-700 font-medium' : 'text-zinc-600 hover:bg-white hover:text-zinc-900'}`}
                     >
                         <Link size={18} /> <span>Integrations</span>
                     </button>
                     <button 
                         onClick={() => setActiveTab('diagnostics')}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'diagnostics' ? 'bg-white shadow-sm border border-slate-200 text-teal-700 font-medium' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'diagnostics' ? 'bg-white shadow-sm border border-zinc-200 text-indigo-700 font-medium' : 'text-zinc-600 hover:bg-white hover:text-zinc-900'}`}
                     >
                         <Activity size={18} /> <span>Diagnostics</span>
                     </button>
                     
-                    <div className="pt-8 mt-8 border-t border-slate-200">
+                    <div className="pt-8 mt-8 border-t border-zinc-200">
                          <button 
                             onClick={onSignOut}
                             className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50 transition-colors"
@@ -152,38 +152,38 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
+                <div className="flex-1 bg-white rounded-xl shadow-sm border border-zinc-200 p-6 md:p-8">
                     {activeTab === 'profile' && (
                         <div className="space-y-6 animate-fade-in">
-                            <h2 className="text-xl font-bold text-slate-800 mb-4">Profile Information</h2>
+                            <h2 className="text-xl font-bold text-zinc-800 mb-4">Profile Information</h2>
                             
                             <div className="flex items-center space-x-6">
-                                <div className="w-24 h-24 rounded-full bg-slate-200 overflow-hidden shrink-0">
+                                <div className="w-24 h-24 rounded-full bg-zinc-200 overflow-hidden shrink-0">
                                     <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="w-full h-full object-cover" />
                                 </div>
-                                <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50">Change Photo</button>
+                                <button className="px-4 py-2 border border-zinc-300 rounded-lg text-sm font-medium hover:bg-zinc-50">Change Photo</button>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                                    <input type="text" className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-teal-500 focus:outline-none" defaultValue="Edwin O." />
+                                    <label className="block text-sm font-medium text-zinc-700 mb-1">Full Name</label>
+                                    <input type="text" className="w-full border border-zinc-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" defaultValue="Edwin O." />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                                    <input type="email" className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-teal-500 focus:outline-none" defaultValue="edwin@uon.ac.ke" />
+                                    <label className="block text-sm font-medium text-zinc-700 mb-1">Email</label>
+                                    <input type="email" className="w-full border border-zinc-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" defaultValue="edwin@uon.ac.ke" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">University</label>
-                                    <select className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                                    <label className="block text-sm font-medium text-zinc-700 mb-1">University</label>
+                                    <select className="w-full border border-zinc-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                                         <option>University of Nairobi</option>
                                         <option>Kenyatta University</option>
                                         <option>Strathmore University</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Degree Level</label>
-                                    <select className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                                    <label className="block text-sm font-medium text-zinc-700 mb-1">Degree Level</label>
+                                    <select className="w-full border border-zinc-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                                         <option>Masters</option>
                                         <option>PhD</option>
                                         <option>Undergraduate</option>
@@ -192,28 +192,28 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
                             </div>
 
                             <div className="pt-4 flex justify-end">
-                                <button className="px-6 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800">Save Changes</button>
+                                <button className="px-6 py-2 bg-zinc-900 text-white rounded-lg font-medium hover:bg-zinc-800">Save Changes</button>
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'billing' && (
                         <div className="space-y-6 animate-fade-in">
-                            <h2 className="text-xl font-bold text-slate-800">Subscription Plan</h2>
-                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <h2 className="text-xl font-bold text-zinc-800">Subscription Plan</h2>
+                            <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
-                                    <p className="font-bold text-slate-900">Student Premium</p>
-                                    <p className="text-sm text-slate-500">Billed monthly • Next billing date: Nov 12, 2023</p>
+                                    <p className="font-bold text-zinc-900">Student Premium</p>
+                                    <p className="text-sm text-zinc-500">Billed monthly • Next billing date: Nov 12, 2023</p>
                                 </div>
                                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase">Active</span>
                             </div>
                             
                             <div className="pt-4">
-                                <h3 className="font-bold text-slate-700 mb-3">Payment Method</h3>
-                                <div className="flex items-center space-x-3 border border-slate-200 rounded-lg p-3">
-                                    <CreditCard size={20} className="text-slate-400" />
-                                    <span className="flex-1 font-mono text-slate-600">•••• •••• •••• 4242</span>
-                                    <button className="text-sm text-teal-600 hover:underline">Edit</button>
+                                <h3 className="font-bold text-zinc-700 mb-3">Payment Method</h3>
+                                <div className="flex items-center space-x-3 border border-zinc-200 rounded-lg p-3">
+                                    <CreditCard size={20} className="text-zinc-400" />
+                                    <span className="flex-1 font-mono text-zinc-600">•••• •••• •••• 4242</span>
+                                    <button className="text-sm text-indigo-600 hover:underline">Edit</button>
                                 </div>
                             </div>
                         </div>
@@ -221,13 +221,13 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
 
                     {activeTab === 'notifications' && (
                         <div className="space-y-4 animate-fade-in">
-                            <h2 className="text-xl font-bold text-slate-800 mb-4">Notification Preferences</h2>
+                            <h2 className="text-xl font-bold text-zinc-800 mb-4">Notification Preferences</h2>
                             {['Email me about deadline reminders', 'Email me about marketplace offers', 'Notify me when AI analysis is complete'].map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                                    <span className="text-slate-700 text-sm md:text-base">{item}</span>
+                                <div key={idx} className="flex items-center justify-between py-2 border-b border-zinc-100 last:border-0">
+                                    <span className="text-zinc-700 text-sm md:text-base">{item}</span>
                                     <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in shrink-0">
-                                        <input type="checkbox" name={`toggle-${idx}`} id={`toggle-${idx}`} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-6 checked:border-teal-400" defaultChecked />
-                                        <label htmlFor={`toggle-${idx}`} className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer checked:bg-teal-400"></label>
+                                        <input type="checkbox" name={`toggle-${idx}`} id={`toggle-${idx}`} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-6 checked:border-indigo-400" defaultChecked />
+                                        <label htmlFor={`toggle-${idx}`} className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer checked:bg-indigo-400"></label>
                                     </div>
                                 </div>
                             ))}
@@ -238,36 +238,36 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
                          <div className="space-y-8 animate-fade-in">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h2 className="text-xl font-bold text-slate-800">Account Connections</h2>
-                                    <p className="text-slate-500 text-sm">Link your personal accounts to import data.</p>
+                                    <h2 className="text-xl font-bold text-zinc-800">Account Connections</h2>
+                                    <p className="text-zinc-500 text-sm">Link your personal accounts to import data.</p>
                                 </div>
-                                <span className="bg-teal-50 text-teal-700 text-xs font-bold px-3 py-1 rounded-full">{connectedCount} Connected</span>
+                                <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full">{connectedCount} Connected</span>
                             </div>
 
                             <div className="space-y-6">
                                 {userIntegrations.map((group, idx) => (
                                     <div key={idx}>
-                                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{group.category}</h3>
+                                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">{group.category}</h3>
                                         <div className="grid grid-cols-1 gap-4">
                                             {group.items.map((api) => (
-                                                <div key={api.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-teal-200 transition-colors bg-slate-50/50">
+                                                <div key={api.id} className="flex items-center justify-between p-4 border border-zinc-200 rounded-lg hover:border-indigo-200 transition-colors bg-zinc-50/50">
                                                     <div className="flex items-center space-x-4">
-                                                        <div className={`p-2 rounded-lg ${api.connected ? 'bg-teal-100 text-teal-600' : 'bg-slate-200 text-slate-400'}`}>
+                                                        <div className={`p-2 rounded-lg ${api.connected ? 'bg-indigo-100 text-indigo-600' : 'bg-zinc-200 text-zinc-400'}`}>
                                                             <api.icon size={20} />
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
-                                                                <h4 className="font-bold text-slate-800">{api.name}</h4>
-                                                                {api.connected && <CheckCircle2 size={14} className="text-teal-500" />}
+                                                                <h4 className="font-bold text-zinc-800">{api.name}</h4>
+                                                                {api.connected && <CheckCircle2 size={14} className="text-indigo-500" />}
                                                             </div>
-                                                            <p className="text-xs text-slate-500 max-w-sm hidden sm:block">{api.desc}</p>
+                                                            <p className="text-xs text-zinc-500 max-w-sm hidden sm:block">{api.desc}</p>
                                                         </div>
                                                     </div>
                                                     
                                                     {api.connected ? (
                                                         <button 
                                                             onClick={() => handleDisconnect(api.id)}
-                                                            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 flex items-center gap-2"
+                                                            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white border border-zinc-200 text-zinc-600 hover:text-red-600 hover:border-red-200 flex items-center gap-2"
                                                         >
                                                             Disconnect
                                                         </button>
@@ -275,7 +275,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
                                                         <button 
                                                             onClick={() => handleConnect(api.id, api.url)}
                                                             disabled={!!connectingId}
-                                                            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-slate-900 text-white hover:bg-slate-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-zinc-900 text-white hover:bg-zinc-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             {connectingId === api.id ? (
                                                                 <>
@@ -299,10 +299,10 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
 
                     {activeTab === 'diagnostics' && (
                         <div className="space-y-6 animate-fade-in">
-                            <h2 className="text-xl font-bold text-slate-800">System Diagnostics</h2>
-                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-6">
-                                <h3 className="font-bold text-slate-700 mb-2">Gemini API Connection</h3>
-                                <p className="text-sm text-slate-500 mb-4">Verify that your API key is correctly configured and the application can reach Google's servers.</p>
+                            <h2 className="text-xl font-bold text-zinc-800">System Diagnostics</h2>
+                            <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6">
+                                <h3 className="font-bold text-zinc-700 mb-2">Gemini API Connection</h3>
+                                <p className="text-sm text-zinc-500 mb-4">Verify that your API key is correctly configured and the application can reach Google's servers.</p>
                                 
                                 <div className="flex items-center gap-4">
                                     <button 
@@ -327,7 +327,7 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
                                     )}
                                 </div>
                                 
-                                <div className="mt-4 p-3 bg-white border border-slate-200 rounded text-xs font-mono text-slate-600 break-all">
+                                <div className="mt-4 p-3 bg-white border border-zinc-200 rounded text-xs font-mono text-zinc-600 break-all">
                                     <strong>Key Status: </strong>
                                     {keyStatus}
                                 </div>

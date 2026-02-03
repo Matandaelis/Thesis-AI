@@ -1,1 +1,12 @@
-{}
+
+{
+  "pages_build_output_dir": "dist",
+  "compatibility_date": "2024-09-23",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "thesis-ai-db",
+      "database_id": "9577bfb6-4ea7-489c-b6d3-b21979939b04"
+    }
+  ]
+}

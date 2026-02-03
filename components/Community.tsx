@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { MessageSquare, Heart, Share2, Users, Search, Filter, Hash, UserPlus, MoreVertical } from 'lucide-react';
+import { MessageSquare, Heart, Share2, Users, UserPlus, MoreVertical } from 'lucide-react';
 
 const mockPosts = [
   {
@@ -65,7 +65,7 @@ export const Community: React.FC = () => {
                     <button 
                       key={topic}
                       onClick={() => setFilter(topic)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === topic ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === topic ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                        # {topic}
                     </button>
@@ -81,12 +81,12 @@ export const Community: React.FC = () => {
               <div className="flex gap-4">
                  <img src="https://i.pravatar.cc/150?img=11" className="w-10 h-10 rounded-full bg-slate-200" />
                  <input 
-                    className="flex-1 bg-slate-50 rounded-full px-4 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                    className="flex-1 bg-slate-50 rounded-full px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                     placeholder="Share your progress or ask a question..."
                  />
               </div>
               <div className="flex justify-end mt-3 pt-3 border-t border-slate-100">
-                 <button className="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-teal-700 transition-colors">Post</button>
+                 <button className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors">Post</button>
               </div>
            </div>
 
@@ -95,7 +95,7 @@ export const Community: React.FC = () => {
               <div key={post.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow">
                  <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
-                       <img src={post.avatar} className="w-10 h-10 rounded-full" />
+                       <img src={post.avatar} className="w-10 h-10 rounded-full border border-slate-100" />
                        <div>
                           <h4 className="font-bold text-slate-900 text-sm">{post.user}</h4>
                           <p className="text-xs text-slate-500">{post.uni} • {post.time}</p>
@@ -108,7 +108,7 @@ export const Community: React.FC = () => {
                  
                  <div className="flex flex-wrap gap-2 mb-4">
                     {post.tags.map(tag => (
-                       <span key={tag} className="text-xs font-medium text-teal-600 bg-teal-50 px-2 py-1 rounded-full">#{tag}</span>
+                       <span key={tag} className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">#{tag}</span>
                     ))}
                  </div>
 
@@ -116,7 +116,7 @@ export const Community: React.FC = () => {
                     <button onClick={() => handleLike(post.id)} className="flex items-center gap-1.5 text-sm hover:text-rose-500 transition-colors">
                        <Heart size={18} /> {post.likes}
                     </button>
-                    <button className="flex items-center gap-1.5 text-sm hover:text-indigo-600 transition-colors">
+                    <button className="flex items-center gap-1.5 text-sm hover:text-blue-600 transition-colors">
                        <MessageSquare size={18} /> {post.comments}
                     </button>
                     <button className="flex items-center gap-1.5 text-sm hover:text-slate-800 transition-colors">
@@ -131,7 +131,7 @@ export const Community: React.FC = () => {
         <div className="hidden lg:block space-y-6">
            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                 <Users size={18} className="text-indigo-600" /> Active Groups
+                 <Users size={18} className="text-blue-600" /> Active Groups
               </h3>
               <div className="space-y-4">
                  {studyGroups.map(group => (
@@ -140,7 +140,7 @@ export const Community: React.FC = () => {
                           <h4 className="text-sm font-bold text-slate-700">{group.name}</h4>
                           <p className="text-xs text-slate-500">{group.members} Members</p>
                        </div>
-                       <button className="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-lg transition-colors">
+                       <button className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors">
                           <UserPlus size={16} />
                        </button>
                     </div>

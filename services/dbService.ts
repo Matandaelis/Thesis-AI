@@ -1,10 +1,8 @@
 
 import { Document, LibraryItem, Annotation } from '@/types';
 
-// Fallback logic kept for offline resilience, but primary calls go to /api/
+// Local storage fallback keys
 const LOCAL_DOCS_KEY = 'thesisai_documents';
-const LOCAL_LIB_KEY = 'thesisai_library';
-const LOCAL_ANNOTATIONS_KEY = 'thesisai_annotations';
 
 const getLocalDocs = (): Document[] => {
   if (typeof window === 'undefined') return [];
@@ -33,12 +31,12 @@ export const dbService = {
         title: d.title,
         universityId: d.university_id,
         content: d.content,
-        lastModified: new Date(d.last_modified), // D1 returns integer timestamp
+        lastModified: new Date(d.last_modified),
         status: d.status,
         progress: d.progress
       }));
     } catch (error) {
-      console.warn('D1 API fetch failed (using local fallback):', error);
+      console.warn('D1 API fetch failed, falling back to local storage.');
       return getLocalDocs();
     }
   },
@@ -64,14 +62,23 @@ export const dbService = {
   },
 
   async renameDocument(id: string, title: string): Promise<void> {
+    // Local Update
     const docs = getLocalDocs();
     const doc = docs.find(d => d.id === id);
     if (doc) {
       doc.title = title;
       doc.lastModified = new Date();
       saveLocalDocs(docs);
-      await this.saveDocument(doc);
     }
+
+    // Remote Patch
+    try {
+      await fetch(`/api/documents?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title })
+      });
+    } catch(e) { console.error("Failed to patch document title", e); }
   },
 
   async deleteDocument(id: string): Promise<void> {
@@ -109,7 +116,6 @@ export const dbService = {
         embedding: i.embedding ? JSON.parse(i.embedding) : undefined
       }));
     } catch (error) {
-      console.warn('Library API failed, using local', error);
       return [];
     }
   },
@@ -125,18 +131,15 @@ export const dbService = {
   },
 
   async updateLibraryItem(id: string, updates: Partial<LibraryItem>): Promise<void> {
-    // D1 API currently expects full object for UPSERT simplicity, or we map specific fields.
-    // For simplicity in this demo, we re-fetch locally/merge or send sparse update if API supports it.
-    // Here we will just send the updates assuming the API handles it (We added specific field handling in API)
-    // Actually, our simple API example uses UPSERT which requires all fields or existing ones.
-    // A robust impl would fetch first or add specific PATCH endpoints. 
-    // We will attempt to merge with local state and send full object.
-    
-    const items = await this.getLibrary(); // Or get from state
-    const item = items.find(i => i.id === id);
-    if (item) {
-        const updated = { ...item, ...updates };
-        await this.addToLibrary(updated);
+    // Efficient PATCH update
+    try {
+        await fetch(`/api/library?id=${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+    } catch (e) {
+        console.error("Failed to patch library item", e);
     }
   },
   

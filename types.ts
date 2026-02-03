@@ -29,14 +29,6 @@ export interface Document {
   progress: number;
 }
 
-export interface AISuggestion {
-  id: string;
-  type: 'grammar' | 'style' | 'citation' | 'clarity';
-  originalText: string;
-  suggestion: string;
-  explanation: string;
-}
-
 export interface ValidationIssue {
   id: string;
   category: 'fact' | 'integrity' | 'quality';
@@ -60,22 +52,14 @@ export interface AnalyticsReport {
   goalProjection: string;
 }
 
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'model';
-  text: string;
-  timestamp: Date;
-}
-
 export interface ResearchLink {
   title: string;
   uri: string;
-  links?: ResearchLink[];
 }
 
-export interface ResearchResponse {
-  content: string;
-  links: ResearchLink[];
+export interface WebResearchResponse {
+  answer: string;
+  sources: ResearchLink[];
 }
 
 export interface Reference {
@@ -98,41 +82,13 @@ export interface LibraryItem extends Reference {
   isFavorite: boolean;
   addedDate: Date;
   fullText?: string;
-  similarity?: number; // 0-1 score for semantic search relevance
-  embedding?: number[]; // Vector embedding for local simulation
-}
-
-export interface Annotation {
-  id: string;
-  paperId: string;
-  userId: string;
-  type: 'highlight' | 'comment' | 'question' | 'note';
-  content: string;
-  color?: 'yellow' | 'green' | 'blue' | 'red';
-  position: {
-    page: number;
-    x?: number;
-    y?: number;
-    quote?: string;
-  };
-  createdAt: Date;
-  status: 'active' | 'resolved';
+  similarity?: number;
 }
 
 export interface LibraryFolder {
   id: string;
   name: string;
   count: number;
-}
-
-export interface ChartData {
-  id: string;
-  title: string;
-  type: 'bar' | 'line' | 'area' | 'pie';
-  data: any[];
-  xKey: string;
-  dataKeys: string[];
-  description: string;
 }
 
 export interface UniversityUpdate {
@@ -169,6 +125,19 @@ export interface Journal {
   website?: string;
 }
 
+// Added missing Annotation interface to fix compilation error in dbService
+export interface Annotation {
+  id: string;
+  paperId: string;
+  userId: string;
+  type: string;
+  content: string;
+  color: string;
+  position: any;
+  createdAt: Date;
+  status: string;
+}
+
 export enum View {
   LANDING = 'LANDING',
   DASHBOARD = 'DASHBOARD',
@@ -178,13 +147,12 @@ export enum View {
   MARKETPLACE = 'MARKETPLACE',
   SETTINGS = 'SETTINGS',
   RESEARCH = 'RESEARCH',
-  CALENDAR = 'CALENDAR',
-  ANALYTICS = 'ANALYTICS',
-  COMMUNITY = 'COMMUNITY',
+  WEB_RESEARCH = 'WEB_RESEARCH',
+  VISUALIZATION = 'VISUALIZATION',
   TOOLKIT = 'TOOLKIT',
-  PRICING = 'PRICING',
-  HELP = 'HELP',
+  ANALYTICS = 'ANALYTICS',
   JOURNAL_MATCHER = 'JOURNAL_MATCHER',
   SYNTHESIS = 'SYNTHESIS',
-  PAPER_EDITOR = 'PAPER_EDITOR'
+  HELP = 'HELP',
+  PRICING = 'PRICING'
 }
