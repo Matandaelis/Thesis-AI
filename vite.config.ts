@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  const env = loadEnv(mode, process.cwd(), '');
   return {
     plugins: [react()],
     resolve: {
@@ -20,6 +20,11 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env': env
-    }
+    },
+    server: {
+      host: '0.0.0.0',
+      port: 5000,
+      allowedHosts: true,
+    },
   };
 });
