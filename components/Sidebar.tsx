@@ -1,95 +1,360 @@
-import React, { useState } from 'react';
-import { 
-  LayoutDashboard, FileText, Settings, BookOpen, 
-  Calendar, BarChart2, GraduationCap, ChevronRight,
-  Sparkles, HelpCircle, X, Search, LogOut, Globe, Image as ImageIcon
-} from 'lucide-react';
-import { View } from '../types';
-import { ACTIVE_BRAND } from '../lib/brand';
+"use client"
 
-interface SidebarProps {
-  currentView: View;
-  onChangeView: (view: View) => void;
-  isOpen: boolean;
-  onClose: () => void;
-  apiStatus: 'checking' | 'connected' | 'error';
+import type React from "react"
+import { useState, useEffect } from "react"
+import {
+  LayoutDashboard,
+  FileText,
+  ShoppingBag,
+  Settings,
+  BookOpen,
+  Library,
+  Calendar,
+  BarChart2,
+  Users,
+  GraduationCap,
+  ChevronRight,
+  Layers,
+  PenTool,
+  CreditCard,
+  Sparkles,
+  HelpCircle,
+  X,
+  Search,
+  LogOut,
+  Sun,
+  Moon,
+  Loader2,
+} from "lucide-react"
+import { View } from "../types"
+import { useUser } from "../contexts/UserContext"
+
+interface NavItem {
+  id?: View
+  label: string
+  icon: React.ElementType
+  subItems?: NavItem[]
+  badge?: string
+  isExternal?: boolean
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isOpen, onClose, apiStatus }) => {
-  const BrandLogo = ACTIVE_BRAND.logo;
+interface SidebarProps {
+  currentView: View
+  onChangeView: (view: View) => void
+  isOpen: boolean
+  onClose: () => void
+}
 
-  const sections = [
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isOpen, onClose }) => {
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["My Projects", "Research Suite"])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  const { user, isLoading, logout } = useUser()
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((prev) => (prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label]))
+  }
+
+  const navSections: { title: string; items: NavItem[] }[] = [
     {
-      title: 'Overview',
+      title: "Main",
       items: [
-        { id: View.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-        { id: View.DOCUMENTS, label: 'My Projects', icon: FileText },
-      ]
+        { id: View.DASHBOARD, label: "Dashboard", icon: LayoutDashboard },
+        {
+          label: "My Projects",
+          icon: FileText,
+          subItems: [
+            { id: View.DOCUMENTS, label: "All Documents", icon: FileText },
+            { id: View.CALENDAR, label: "Timeline & Tasks", icon: Calendar },
+          ],
+        },
+      ],
     },
     {
-      title: 'Research',
+      title: "Academic Suite",
       items: [
-        { id: View.TOOLKIT, label: 'Scholar Toolkit', icon: Sparkles },
-        { id: View.WEB_RESEARCH, label: 'Web Research', icon: Globe },
-        { id: View.VISUALIZATION, label: 'Visual Studio', icon: ImageIcon },
-        { id: View.RESEARCH, label: 'Library', icon: BookOpen },
-        { id: View.ANALYTICS, label: 'Analytics', icon: BarChart2 },
-      ]
+        {
+          label: "Research Engine",
+          icon: Sparkles,
+          subItems: [
+            { id: View.TOOLKIT, label: "Scholar Toolkit", icon: PenTool },
+            { id: View.RESEARCH, label: "References Library", icon: BookOpen },
+            { id: View.ANALYTICS, label: "Writing Analytics", icon: BarChart2 },
+          ],
+        },
+        {
+          label: "Campus & Market",
+          icon: Library,
+          subItems: [
+            { id: View.TEMPLATES, label: "University Templates", icon: Layers },
+            { id: View.MARKETPLACE, label: "Expert Marketplace", icon: ShoppingBag, badge: "New" },
+            { id: View.COMMUNITY, label: "Scholar Community", icon: Users, badge: "Beta" },
+          ],
+        },
+      ],
     },
     {
-      title: 'Support',
+      title: "Settings",
       items: [
-        { id: View.SETTINGS, label: 'Settings', icon: Settings },
-        { id: View.HELP, label: 'Help Center', icon: HelpCircle },
-      ]
-    }
-  ];
+        { id: View.PRICING, label: "Subscription", icon: CreditCard },
+        {
+          label: "System",
+          icon: Settings,
+          subItems: [
+            { id: View.SETTINGS, label: "Preferences", icon: Settings },
+            { id: View.HELP, label: "Help & Support", icon: HelpCircle },
+          ],
+        },
+      ],
+    },
+  ]
+
+  useEffect(() => {
+    navSections.forEach((section) => {
+      section.items.forEach((item) => {
+        if (item.subItems && item.subItems.some((sub) => sub.id === currentView)) {
+          setExpandedGroups((prev) => Array.from(new Set([...prev, item.label])))
+        }
+      })
+    })
+  }, [currentView])
+
+  const filterItems = (items: NavItem[]): NavItem[] => {
+    if (!searchTerm) return items
+    return items.reduce((acc: NavItem[], item) => {
+      const matches = item.label.toLowerCase().includes(searchTerm.toLowerCase())
+      const subMatches = item.subItems ? filterItems(item.subItems) : []
+
+      if (matches || subMatches.length > 0) {
+        acc.push({
+          ...item,
+          subItems: subMatches.length > 0 ? subMatches : item.subItems,
+        })
+        if (!expandedGroups.includes(item.label) && item.subItems) {
+          setExpandedGroups((prev) => [...prev, item.label])
+        }
+      }
+      return acc
+    }, [])
+  }
 
   return (
     <>
-      <div className={`fixed inset-0 bg-slate-900/20 z-40 md:hidden transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
-      <div className={`fixed md:relative z-50 h-full w-64 bg-white text-slate-600 flex flex-col border-r border-slate-200 transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="h-16 flex items-center px-6 gap-3 shrink-0 border-b border-slate-50">
-          <div className={`bg-blue-600 p-1.5 rounded-lg text-white shadow-lg shadow-blue-600/20`}>
-            <BrandLogo size={20} />
+      {isOpen && <div className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" onClick={onClose} />}
+
+      <div
+        className={`
+        fixed md:relative z-50 h-full w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl border-r border-slate-800 transition-transform duration-300 ease-in-out
+        ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}
+      >
+        <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-900">
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onChangeView(View.DASHBOARD)}>
+            <div className="bg-gradient-to-br from-teal-500 to-emerald-600 p-2 rounded-lg text-white shadow-lg shadow-teal-900/50">
+              <GraduationCap size={24} />
+            </div>
+            <div>
+              <span className="text-xl font-bold font-serif tracking-tight text-white block">ThesisAI</span>
+              <span className="text-[10px] text-teal-400 font-bold uppercase tracking-widest">Scholar Edition</span>
+            </div>
           </div>
-          <span className="text-lg font-bold font-serif text-slate-900 tracking-tight">{ACTIVE_BRAND.name}</span>
+          <button
+            onClick={onClose}
+            className="md:hidden text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-7">
-          {sections.map((section) => (
-            <div key={section.title}>
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-3">{section.title}</h3>
-              <div className="space-y-1">
-                {section.items.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => onChangeView(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${currentView === item.id ? 'bg-blue-50 text-blue-700 font-bold shadow-sm' : 'hover:bg-slate-50 hover:text-slate-900'}`}
-                  >
-                    <item.icon size={18} className={currentView === item.id ? `text-blue-600` : 'text-slate-400'} />
-                    {item.label}
-                  </button>
-                ))}
+        <div className="px-4 py-4">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Jump to..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto px-3 pb-6 space-y-6 custom-scrollbar">
+          {navSections.map((section, idx) => {
+            const filtered = filterItems(section.items)
+            if (filtered.length === 0) return null
+
+            return (
+              <div key={idx} className="animate-fade-in">
+                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 flex items-center gap-2">
+                  {section.title}
+                  <div className="h-px bg-slate-800 flex-1"></div>
+                </h3>
+                <div className="space-y-0.5">
+                  {filtered.map((item) => {
+                    const Icon = item.icon
+                    const isExpanded = expandedGroups.includes(item.label)
+                    const hasSubItems = item.subItems && item.subItems.length > 0
+                    const isActive = !hasSubItems && currentView === item.id
+                    const isChildActive = hasSubItems && item.subItems?.some((sub) => sub.id === currentView)
+
+                    return (
+                      <div key={item.label}>
+                        <button
+                          onClick={() => {
+                            if (hasSubItems) {
+                              toggleGroup(item.label)
+                            } else if (item.id) {
+                              onChangeView(item.id)
+                              if (window.innerWidth < 768) onClose()
+                            }
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
+                            isActive
+                              ? "bg-teal-600 text-white shadow-md shadow-teal-900/20"
+                              : isChildActive
+                                ? "text-white"
+                                : "hover:bg-slate-800/80 hover:text-white text-slate-400"
+                          }`}
+                        >
+                          {isActive && (
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r"></div>
+                          )}
+
+                          <div className="flex items-center space-x-3 flex-1">
+                            <Icon
+                              size={18}
+                              className={`${isActive || isChildActive ? "text-white" : "text-slate-500 group-hover:text-teal-400"} transition-colors`}
+                            />
+                            <span className={`text-sm ${isActive || isChildActive ? "font-semibold" : "font-medium"}`}>
+                              {item.label}
+                            </span>
+                            {item.badge && (
+                              <span
+                                className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${isActive ? "bg-teal-500 text-white" : "bg-teal-900/50 text-teal-200 border border-teal-800"}`}
+                              >
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
+                          {hasSubItems && (
+                            <div
+                              className={`text-slate-500 transition-transform duration-200 ${isExpanded ? "rotate-90 text-slate-300" : ""}`}
+                            >
+                              <ChevronRight size={14} />
+                            </div>
+                          )}
+                        </button>
+
+                        {hasSubItems && isExpanded && (
+                          <div className="mt-1 ml-3 pl-3 border-l border-slate-700/50 space-y-0.5 animate-fade-in-down">
+                            {item.subItems?.map((sub) => {
+                              const SubIcon = sub.icon
+                              const isSubActive = currentView === sub.id
+                              return (
+                                <button
+                                  key={sub.label}
+                                  onClick={() => {
+                                    if (sub.id) {
+                                      onChangeView(sub.id)
+                                      if (window.innerWidth < 768) onClose()
+                                    }
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group ${
+                                    isSubActive
+                                      ? "text-teal-400 bg-slate-800/80 font-medium"
+                                      : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+                                  }`}
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <div
+                                      className={`w-1 h-1 rounded-full ${isSubActive ? "bg-teal-400" : "bg-slate-600 group-hover:bg-slate-400"}`}
+                                    ></div>
+                                    <span className="text-xs">{sub.label}</span>
+                                  </div>
+                                  {sub.badge && (
+                                    <span
+                                      className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${isSubActive ? "bg-teal-900 text-teal-400" : "bg-slate-800 text-slate-500 group-hover:text-slate-300"}`}
+                                    >
+                                      {sub.badge}
+                                    </span>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </nav>
 
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-          <div className="bg-white rounded-2xl p-3 flex items-center gap-3 border border-slate-200 shadow-sm">
-             <div className="relative">
-                <img src="https://i.pravatar.cc/100?img=11" className="w-8 h-8 rounded-full" alt="User" />
-                <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-white rounded-full ${apiStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-             </div>
-             <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-900 truncate">Edwin O.</p>
-                <p className="text-[10px] text-slate-500 font-medium">Premium Scholar</p>
-             </div>
-             <button className="text-slate-400 hover:text-red-500 transition-colors"><LogOut size={14} /></button>
+        <div className="p-4 border-t border-slate-800 bg-slate-900/80 backdrop-blur-sm space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-xs font-medium"
+            >
+              {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
+              <span>{isDarkMode ? "Light Mode" : "Dark Mode"}</span>
+            </button>
+            <button
+              onClick={logout}
+              className="p-1.5 rounded-lg hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-colors"
+              title="Sign out"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
+
+          {isLoading ? (
+            <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50 flex items-center justify-center">
+              <Loader2 size={20} className="animate-spin text-slate-400" />
+            </div>
+          ) : user ? (
+            <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50 flex items-center gap-3">
+              <div className="relative">
+                <img
+                  src={user.avatarUrl || "/placeholder.svg"}
+                  alt={user.name}
+                  className="w-9 h-9 rounded-full border border-slate-600 object-cover"
+                />
+                {user.isOnline && (
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-slate-800 rounded-full"></div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white truncate">{user.name}</p>
+                <div className="flex items-center gap-1">
+                  <span
+                    className={`text-[10px] px-1.5 rounded font-medium border ${
+                      user.plan === "pro"
+                        ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
+                        : user.plan === "enterprise"
+                          ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                          : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                    }`}
+                  >
+                    {user.plan.toUpperCase()} Plan
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => onChangeView(View.LANDING)}
+              className="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              Sign In
+            </button>
+          )}
         </div>
       </div>
     </>
-  );
-};
+  )
+}

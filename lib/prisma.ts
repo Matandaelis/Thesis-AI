@@ -1,3 +1,11 @@
+import { PrismaClient } from '@prisma/client';
 
-// This file is deprecated. The application now uses Cloudflare D1.
-export const prisma = null;
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: ['query'],
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
