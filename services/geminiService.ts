@@ -18,7 +18,7 @@ export const GeminiService = {
    * Internal helper to get a fresh AI instance.
    * Required to prevent race conditions during API Key selection for Veo models.
    */
-  _getAI: () => new GoogleGenAI({ apiKey: process.env.API_KEY }),
+  _getAI: () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY }),
 
   testConnection: async () => {
     try {
@@ -29,8 +29,9 @@ export const GeminiService = {
       });
       return { success: !!response.text, message: response.text || "Connected" };
     } catch (error) {
-      console.error("Gemini Connection Error:", error);
-      return { success: false, message: "Connection Failed" };
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Connection test failed:", message);
+      return { success: false, message: "Connection Failed: " + message };
     }
   },
 
@@ -60,7 +61,8 @@ export const GeminiService = {
 
       return { answer: text, sources };
     } catch (error) {
-      console.error("Web grounded search failed:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Web grounded search failed:", message);
       return { answer: "I encountered an error searching the web. Please try again.", sources: [] };
     }
   },
@@ -84,9 +86,11 @@ export const GeminiService = {
           return `data:image/png;base64,${part.inlineData.data}`;
         }
       }
+      console.warn("[GeminiService] No image data returned from model");
       return null;
     } catch (error) {
-      console.error("Image generation error:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Image generation error:", message);
       return null;
     }
   },
@@ -109,22 +113,32 @@ export const GeminiService = {
       });
 
       onProgress("Veo is synthesizing frames (this takes ~1-3 minutes)...");
-      while (!operation.done) {
+      let attempts = 0;
+      const maxAttempts = 18; // 3 minutes with 10s intervals
+      while (!operation.done && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 10000));
         operation = await ai.operations.getVideosOperation({ operation: operation });
+        attempts++;
+      }
+      
+      if (!operation.done) {
+        throw new Error("Video generation timeout after 3 minutes");
       }
 
       const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
       if (!downloadLink) throw new Error("No download link received");
 
       onProgress("Downloading final asset...");
-      const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-      if (!videoResponse.ok) throw new Error("Failed to fetch video bytes");
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
+      if (!videoResponse.ok) throw new Error(`Failed to fetch video bytes: ${videoResponse.statusText}`);
       
       const blob = await videoResponse.blob();
       return URL.createObjectURL(blob);
     } catch (error) {
-      console.error("Video generation failed:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Video generation failed:", message);
+      onProgress(`Error: ${message}`);
       return null;
     }
   },
@@ -171,8 +185,15 @@ export const GeminiService = {
         issues: data.issues?.map((i: any, idx: number) => ({ ...i, id: `v-${idx}` })) || []
       };
     } catch (error) {
-      console.error("Validation error:", error);
-      return { factScore: 0, integrityScore: 0, qualityScore: 0, summary: "Audit failed.", issues: [] };
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Validation error:", message);
+      return { 
+        factScore: 0, 
+        integrityScore: 0, 
+        qualityScore: 0, 
+        summary: "Audit failed: " + message, 
+        issues: [] 
+      };
     }
   },
 
@@ -191,13 +212,19 @@ export const GeminiService = {
 
   synthesizeLibraryItems: async (items: LibraryItem[], mode: 'thematic' | 'draft') => {
     const ai = GeminiService._getAI();
-    const prompt = `Perform a ${mode} synthesis of these papers: ${items.map(i => `${i.title} (${i.author}, ${i.year})`).join('; ')}`;
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
-      config: { thinkingConfig: { thinkingBudget: 32768 } }
-    });
-    return response.text || "Synthesis failed.";
+    try {
+      const prompt = `Perform a ${mode} synthesis of these papers: ${items.map(i => `${i.title} (${i.author}, ${i.year})`).join('; ')}`;
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: prompt,
+        config: { thinkingConfig: { thinkingBudget: 32768 } }
+      });
+      return response.text || "Synthesis failed.";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Synthesis error:", message);
+      return "Synthesis failed: " + message;
+    }
   },
 
   checkUniversityUpdates: async (universityName: string) => {
@@ -231,6 +258,8 @@ export const GeminiService = {
         date: new Date(item.date)
       }));
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] University updates check failed:", message);
       return [];
     }
   },
@@ -265,96 +294,124 @@ export const GeminiService = {
       });
       return JSON.parse(response.text || '[]');
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Journal finding failed:", message);
       return [];
     }
   },
 
   runGenericTool: async (toolId: string, input: string): Promise<string> => {
     const ai = GeminiService._getAI();
-    const prompts: Record<string, string> = {
-      't1': `Generate a concise academic abstract for this research text: "${input}"`,
-    };
-    const prompt = prompts[toolId] || `Summarize and extract key insights from this text: "${input}"`;
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-    return response.text || "I was unable to process the requested tool.";
+    try {
+      const prompts: Record<string, string> = {
+        't1': `Generate a concise academic abstract for this research text: "${input}"`,
+      };
+      const prompt = prompts[toolId] || `Summarize and extract key insights from this text: "${input}"`;
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+      });
+      return response.text || "I was unable to process the requested tool.";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Generic tool error:", message);
+      return "Tool execution failed: " + message;
+    }
   },
 
   generateLiteratureMatrix: async (input: string): Promise<string> => {
     const ai = GeminiService._getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Generate a markdown literature comparison table for these sources: "${input}". Include columns for Author/Year, Research Objective, Methodology, Findings, and Limitations.`,
-    });
-    return response.text || "Failed to generate matrix.";
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Generate a markdown literature comparison table for these sources: "${input}". Include columns for Author/Year, Research Objective, Methodology, Findings, and Limitations.`,
+      });
+      return response.text || "Failed to generate matrix.";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Literature matrix generation failed:", message);
+      return "Failed to generate matrix: " + message;
+    }
   },
 
   filterDocuments: async (searchQuery: string, docsMetadata: any[]): Promise<string[]> => {
     const ai = GeminiService._getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Analyze these documents: ${JSON.stringify(docsMetadata)} and identify which ones match this natural language query: "${searchQuery}". Return ONLY a JSON array of matching document IDs.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING }
-        }
-      }
-    });
     try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Analyze these documents: ${JSON.stringify(docsMetadata)} and identify which ones match this natural language query: "${searchQuery}". Return ONLY a JSON array of matching document IDs.`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+          }
+        }
+      });
       return JSON.parse(response.text || '[]');
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Document filtering failed:", message);
       return [];
     }
   },
 
   generateAnalyticsReport: async (summary: string): Promise<AnalyticsReport> => {
     const ai = GeminiService._getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `As an academic supervisor, analyze this document completion summary and provide three distinct insights: "${summary}"`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            peakPerformance: { type: Type.STRING, description: 'Pattern of high productivity' },
-            academicTone: { type: Type.STRING, description: 'Linguistic quality of drafts' },
-            goalProjection: { type: Type.STRING, description: 'Estimated time to completion' }
-          },
-          required: ["peakPerformance", "academicTone", "goalProjection"]
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `As an academic supervisor, analyze this document completion summary and provide three distinct insights: "${summary}"`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              peakPerformance: { type: Type.STRING, description: 'Pattern of high productivity' },
+              academicTone: { type: Type.STRING, description: 'Linguistic quality of drafts' },
+              goalProjection: { type: Type.STRING, description: 'Estimated time to completion' }
+            },
+            required: ["peakPerformance", "academicTone", "goalProjection"]
+          }
         }
-      }
-    });
-    return JSON.parse(response.text || '{}');
+      });
+      return JSON.parse(response.text || '{}');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Analytics report generation failed:", message);
+      return { peakPerformance: "", academicTone: "", goalProjection: "" };
+    }
   },
 
   generateStudySchedule: async (topic: string, startDate: string): Promise<any[]> => {
     const ai = GeminiService._getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Generate a logical research roadmap for a thesis titled "${topic}" starting from ${startDate}. Provide estimated durations in days.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              id: { type: Type.NUMBER },
-              name: { type: Type.STRING },
-              start: { type: Type.NUMBER, description: 'Days offset from start' },
-              duration: { type: Type.NUMBER, description: 'Duration in days' },
-              status: { type: Type.STRING, description: 'Status: completed, active, or pending' }
-            },
-            required: ["id", "name", "start", "duration", "status"]
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Generate a logical research roadmap for a thesis titled "${topic}" starting from ${startDate}. Provide estimated durations in days.`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.NUMBER },
+                name: { type: Type.STRING },
+                start: { type: Type.NUMBER, description: 'Days offset from start' },
+                duration: { type: Type.NUMBER, description: 'Duration in days' },
+                status: { type: Type.STRING, description: 'Status: completed, active, or pending' }
+              },
+              required: ["id", "name", "start", "duration", "status"]
+            }
           }
         }
-      }
-    });
-    return JSON.parse(response.text || '[]');
+      });
+      return JSON.parse(response.text || '[]');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[GeminiService] Study schedule generation failed:", message);
+      return [];
+    }
   }
 };

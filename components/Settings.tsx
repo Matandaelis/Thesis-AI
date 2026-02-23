@@ -98,9 +98,10 @@ export const Settings: React.FC<SettingsProps> = ({ onSignOut }) => {
     // Safe environment variable check for display
     const metaEnv = (import.meta as any).env || {};
     const processEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
-    const keyStatus = metaEnv.VITE_API_KEY ? 'Present (VITE_API_KEY detected)' : 
-                      metaEnv.VITE_GEMINI_API_KEY ? 'Present (VITE_GEMINI_API_KEY detected)' : 
-                      processEnv.API_KEY ? 'Present (process.env.API_KEY detected)' : 
+    const keyStatus = metaEnv.VITE_GEMINI_API_KEY ? 'Present (VITE_GEMINI_API_KEY detected)' :
+                      metaEnv.VITE_API_KEY ? 'Present (VITE_API_KEY detected - legacy)' : 
+                      processEnv.GEMINI_API_KEY ? 'Present (GEMINI_API_KEY detected)' :
+                      processEnv.API_KEY ? 'Present (API_KEY detected - legacy)' : 
                       'Not Detected';
 
     return (

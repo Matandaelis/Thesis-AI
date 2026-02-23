@@ -19,7 +19,8 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
     },
     define: {
-      'process.env': env
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_API_KEY || env.VITE_GEMINI_API_KEY || ''),
+      'process.env.OPENCITATIONS_API_KEY': JSON.stringify(env.OPENCITATIONS_API_KEY || env.OPENCITATIONS_TOKEN || ''),
     }
   };
 });

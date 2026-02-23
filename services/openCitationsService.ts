@@ -3,7 +3,7 @@ const META_API_BASE = "https://api.opencitations.net/meta/v1";
 const INDEX_API_BASE = "https://api.opencitations.net/index/v2";
 
 // Access token from environment variables (optional but recommended for higher rate limits)
-const ACCESS_TOKEN = process.env.OPENCITATIONS_TOKEN || "";
+const ACCESS_TOKEN = process.env.OPENCITATIONS_API_KEY || process.env.OPENCITATIONS_TOKEN || "";
 
 const getHeaders = () => {
   const headers: Record<string, string> = {
