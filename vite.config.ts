@@ -6,8 +6,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, (process as any).cwd(), '');
+export default defineConfig(({ mode, command }) => {
+  // Use __dirname instead of process.cwd() to avoid CJS API deprecation warning
+  const env = loadEnv(mode, __dirname, '');
   return {
     plugins: [react()],
     resolve: {
