@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   LayoutDashboard, FileText, Settings, BookOpen, 
-  Calendar, BarChart2, GraduationCap, ChevronRight,
-  Sparkles, HelpCircle, X, Search, LogOut, Globe, Image as ImageIcon
+  BarChart2, Sparkles, HelpCircle, X, LogOut, Globe, 
+  Image as ImageIcon, ChevronLeft, ChevronRight, Zap
 } from 'lucide-react';
 import { View } from '../types';
 import { ACTIVE_BRAND } from '../lib/brand';
@@ -13,9 +13,13 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   apiStatus: 'checking' | 'connected' | 'error';
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isOpen, onClose, apiStatus }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  currentView, onChangeView, isOpen, onClose, apiStatus, isCollapsed, onToggleCollapse 
+}) => {
   const BrandLogo = ACTIVE_BRAND.logo;
 
   const sections = [
@@ -45,49 +49,99 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isO
     }
   ];
 
+  const sidebarWidth = isCollapsed ? 'w-[72px]' : 'w-64';
+
   return (
     <>
-      <div className={`fixed inset-0 bg-slate-900/20 z-40 md:hidden transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
-      <div className={`fixed md:relative z-50 h-full w-64 bg-white text-slate-600 flex flex-col border-r border-slate-200 transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="h-16 flex items-center px-6 gap-3 shrink-0 border-b border-slate-50">
-          <div className={`bg-blue-600 p-1.5 rounded-lg text-white shadow-lg shadow-blue-600/20`}>
+      <div 
+        className={`fixed inset-0 bg-black/40 z-40 md:hidden transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} 
+        onClick={onClose} 
+      />
+      <div className={`fixed md:relative z-50 h-full ${sidebarWidth} bg-slate-900 text-slate-400 flex flex-col transition-all duration-300 ease-in-out shrink-0 shadow-xl shadow-black/20 overflow-hidden ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        
+        <div className="h-16 flex items-center px-4 gap-3 shrink-0 border-b border-slate-800">
+          <div className="bg-blue-500 p-1.5 rounded-lg text-white shadow-lg shadow-blue-500/30 shrink-0">
             <BrandLogo size={20} />
           </div>
-          <span className="text-lg font-bold font-serif text-slate-900 tracking-tight">{ACTIVE_BRAND.name}</span>
+          {!isCollapsed && (
+            <span className="text-base font-bold font-serif text-white tracking-tight truncate">{ACTIVE_BRAND.name}</span>
+          )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-7">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-5 space-y-6 custom-scrollbar-dark">
           {sections.map((section) => (
             <div key={section.title}>
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-3">{section.title}</h3>
-              <div className="space-y-1">
-                {section.items.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => onChangeView(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${currentView === item.id ? 'bg-blue-50 text-blue-700 font-bold shadow-sm' : 'hover:bg-slate-50 hover:text-slate-900'}`}
-                  >
-                    <item.icon size={18} className={currentView === item.id ? `text-blue-600` : 'text-slate-400'} />
-                    {item.label}
-                  </button>
-                ))}
+              {!isCollapsed && (
+                <h3 className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2 px-3">{section.title}</h3>
+              )}
+              {isCollapsed && <div className="h-px bg-slate-800 mx-2 mb-3" />}
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const active = currentView === item.id;
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => onChangeView(item.id)}
+                      title={isCollapsed ? item.label : undefined}
+                      className={`w-full flex items-center gap-3 rounded-xl text-sm transition-all duration-150 group relative
+                        ${isCollapsed ? 'justify-center px-0 py-3' : 'px-3 py-2.5'}
+                        ${active 
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' 
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        }`}
+                    >
+                      <item.icon size={18} className={`shrink-0 ${active ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
+                      {!isCollapsed && <span className="font-medium truncate">{item.label}</span>}
+                      {isCollapsed && (
+                        <div className="absolute left-full ml-3 bg-slate-800 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg shadow-xl whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 border border-slate-700">
+                          {item.label}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-          <div className="bg-white rounded-2xl p-3 flex items-center gap-3 border border-slate-200 shadow-sm">
-             <div className="relative">
+        <div className="border-t border-slate-800 p-3 shrink-0 space-y-2">
+          {!isCollapsed ? (
+            <div className="bg-slate-800/60 rounded-xl p-3 flex items-center gap-3 border border-slate-700/50">
+              <div className="relative shrink-0">
                 <img src="https://i.pravatar.cc/100?img=11" className="w-8 h-8 rounded-full" alt="User" />
-                <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-white rounded-full ${apiStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-             </div>
-             <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-900 truncate">Edwin O.</p>
-                <p className="text-[10px] text-slate-500 font-medium">Premium Scholar</p>
-             </div>
-             <button className="text-slate-400 hover:text-red-500 transition-colors"><LogOut size={14} /></button>
-          </div>
+                <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-slate-900 rounded-full ${apiStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-white truncate">Edwin O.</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <Zap size={9} className="text-amber-400" fill="currentColor" />
+                  <p className="text-[10px] text-amber-400 font-semibold">Premium Scholar</p>
+                </div>
+              </div>
+              <button className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded-lg hover:bg-slate-700">
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <div className="relative">
+                <img src="https://i.pravatar.cc/100?img=11" className="w-8 h-8 rounded-full" alt="User" />
+                <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-slate-900 rounded-full ${apiStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={onToggleCollapse}
+            className="hidden md:flex w-full items-center justify-center gap-2 p-2 rounded-xl text-slate-600 hover:text-slate-300 hover:bg-slate-800 transition-all text-xs font-medium"
+          >
+            {isCollapsed ? <ChevronRight size={16} /> : <><ChevronLeft size={16} /><span>Collapse</span></>}
+          </button>
+
+          <button onClick={onClose} className="md:hidden w-full flex items-center justify-center gap-2 p-2 rounded-xl text-slate-600 hover:text-slate-300 hover:bg-slate-800 transition-all">
+            <X size={16} />
+          </button>
         </div>
       </div>
     </>

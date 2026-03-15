@@ -152,11 +152,33 @@ export const DocumentsList: React.FC<DocumentsListProps> = ({ documents, onOpenD
       {viewMode === 'list' ? (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-visible min-h-[400px]">
             {filteredDocuments.length === 0 ? (
-            <div className="p-20 text-center flex flex-col items-center justify-center">
-                <div className="bg-slate-50 p-6 rounded-full mb-4"><FileText size={48} className="text-slate-300" /></div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">No documents found</h3>
-                <p className="text-slate-500 mb-6 max-w-sm">We couldn't find any papers matching your current filters or search terms.</p>
-                {!searchQuery && <button onClick={onCreateNew} className="text-blue-600 font-bold hover:underline">Start your first draft</button>}
+            <div className="p-16 text-center flex flex-col items-center justify-center gap-4">
+                <div className="relative">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-3xl flex items-center justify-center shadow-inner">
+                    <FileText size={36} className="text-blue-400" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                    <Plus size={14} className="text-white" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-1">
+                    {searchQuery ? 'No results found' : 'No projects yet'}
+                  </h3>
+                  <p className="text-slate-500 text-sm max-w-xs mx-auto leading-relaxed">
+                    {searchQuery 
+                      ? `Nothing matched "${searchQuery}". Try a different term or clear your search.`
+                      : 'Start your academic journey by creating your first thesis project.'}
+                  </p>
+                </div>
+                {!searchQuery && (
+                  <button 
+                    onClick={onCreateNew} 
+                    className="mt-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2"
+                  >
+                    <Plus size={16} /> Create First Project
+                  </button>
+                )}
             </div>
             ) : (
             <div className="divide-y divide-slate-100">

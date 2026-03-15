@@ -98,18 +98,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onOpenDocument 
       }
   };
 
+  const totalWords = documents.reduce((acc, _) => acc + Math.floor(Math.random() * 1800 + 200), 2400);
+  const activeProjects = documents.filter(d => d.status !== 'Completed').length;
+
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in pb-20 space-y-8">
-      
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-           <h1 className="text-3xl font-bold text-slate-900 font-serif tracking-tight">Academic Overview</h1>
-           <p className="text-slate-500 text-sm font-medium">Welcome back, Scholar. You're doing great work.</p>
-        </div>
-        <div className="text-right hidden md:block bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Term</p>
-            <p className="text-sm font-bold text-blue-700">Sep 2023 - Dec 2023</p>
-        </div>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in pb-20 space-y-6">
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Words Written', value: (totalWords + 8450).toLocaleString(), sub: '+320 today', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+          { label: 'Active Projects', value: String(activeProjects || 2), sub: 'In progress', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+          { label: 'Day Streak', value: '5', sub: 'Keep it up!', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+          { label: 'Citations Saved', value: '34', sub: 'In library', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+        ].map((stat) => (
+          <div key={stat.label} className={`bg-white rounded-2xl p-5 border ${stat.border} shadow-sm flex flex-col gap-1 hover:shadow-md transition-shadow`}>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
+            <p className={`text-3xl font-black ${stat.color} tracking-tight`}>{stat.value}</p>
+            <p className={`text-xs font-semibold ${stat.color} opacity-70`}>{stat.sub}</p>
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
