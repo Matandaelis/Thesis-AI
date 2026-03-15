@@ -332,6 +332,20 @@ export const GeminiService = {
     return JSON.parse(response.text || '{}');
   },
 
+  rewriteForEditor: async (action: 'improve' | 'explain' | 'continue', text: string): Promise<string> => {
+    const ai = GeminiService._getAI();
+    const prompts: Record<string, string> = {
+      improve: `You are an expert academic editor. Rewrite this text to be clearer, more precise, and scholarly. Return ONLY the rewritten text, no preamble: "${text}"`,
+      explain: `Explain this academic concept concisely in 2-3 sentences a researcher would find useful: "${text}"`,
+      continue: `Continue this academic passage naturally in the same style, tone, and voice. Return only the continuation text: "${text}"`
+    };
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompts[action],
+    });
+    return response.text?.trim() || text;
+  },
+
   generateStudySchedule: async (topic: string, startDate: string): Promise<any[]> => {
     const ai = GeminiService._getAI();
     const response = await ai.models.generateContent({
